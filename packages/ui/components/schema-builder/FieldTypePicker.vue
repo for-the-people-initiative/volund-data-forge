@@ -87,4 +87,18 @@ const types = [
 
 .sb-picker__icon { font-size: 1.5rem; }
 .sb-picker__label { font-size: 0.75rem; color: var(--text-secondary, #9ea5c2); }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .sb-picker {
+    min-width: 0;
+    width: 90%;
+    max-width: 340px;
+    padding: var(--space-m, 16px);
+  }
+
+  .sb-picker__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 </style>

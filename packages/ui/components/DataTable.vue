@@ -15,6 +15,37 @@ const router = useRouter()
 const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
 const { fields, status: schemaStatus } = useSchema(toRef(() => props.collection))
+const { deleteRecord } = useDataEngine()
+
+// ─── Delete state ───────────────────────────────────────────
+const deleteTarget = ref<{ id: string; label: string } | null>(null)
+const deleting = ref(false)
+const deleteSuccess = ref(false)
+
+function confirmDelete(record: any, e: Event) {
+  e.stopPropagation()
+  const id = record.id ?? record._id
+  const label = record.name ?? record.title ?? record.label ?? id
+  deleteTarget.value = { id, label }
+}
+
+async function executeDelete() {
+  if (!deleteTarget.value) return
+  deleting.value = true
+  try {
+    await deleteRecord(props.collection, deleteTarget.value.id)
+    deleteTarget.value = null
+    deleteSuccess.value = true
+    setTimeout(() => { deleteSuccess.value = false }, 2000)
+    await refresh()
+  } finally {
+    deleting.value = false
+  }
+}
+
+function cancelDelete() {
+  deleteTarget.value = null
+}
 
 // ─── Table state ────────────────────────────────────────────
 const filters = ref<Record<string, FilterValue>>({})
@@ -293,6 +324,7 @@ function nextPage() {
               <span class="dt__th-label">{{ col.label ?? col.name }}</span>
               <span class="dt__th-sort">{{ sortIcon(col.name) }}</span>
             </th>
+            <th class="dt__th dt__th--actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -325,6 +357,13 @@ function nextPage() {
                 {{ formatValue((record as any)[col.name], col.type) }}
               </span>
             </td>
+            <td class="dt__td dt__td--actions">
+              <button
+                class="dt__delete-btn"
+                title="Verwijderen"
+                @click="confirmDelete(record, $event)"
+              >🗑️</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -334,6 +373,24 @@ function nextPage() {
     <div v-else class="dt__empty">
       <p>Geen records gevonden</p>
     </div>
+
+    <!-- Delete confirmation dialog -->
+    <Teleport to="body">
+      <div v-if="deleteTarget" class="dt__overlay" @click.self="cancelDelete">
+        <div class="dt__dialog">
+          <p>Weet je zeker dat je <strong>{{ deleteTarget.label }}</strong> wilt verwijderen?</p>
+          <div class="dt__dialog-actions">
+            <button class="dt__dialog-cancel" @click="cancelDelete" :disabled="deleting">Annuleren</button>
+            <button class="dt__dialog-confirm" @click="executeDelete" :disabled="deleting">
+              {{ deleting ? 'Bezig...' : 'Verwijderen' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Success feedback -->
+    <div v-if="deleteSuccess" class="dt__toast">Record verwijderd</div>
 
     <!-- Pagination -->
     <div v-if="!isLoading && totalRecords > 0" class="dt__pagination">
@@ -621,5 +678,138 @@ function nextPage() {
 
 .dt__page-total {
   color: var(--text-muted, #7680a9);
+}
+
+.dt__th--actions {
+  width: 48px;
+}
+
+.dt__td--actions {
+  text-align: center;
+  width: 48px;
+}
+
+.dt__delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 4px;
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+
+.dt__row:hover .dt__delete-btn {
+  opacity: 0.8;
+}
+
+.dt__delete-btn:hover {
+  opacity: 1 !important;
+}
+
+.dt__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dt__dialog {
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-rounded, 8px);
+  padding: var(--space-l, 24px);
+  max-width: 400px;
+  width: 90%;
+  color: var(--text-default, #fff);
+}
+
+.dt__dialog p {
+  margin: 0 0 var(--space-m, 16px);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.dt__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-s, 10px);
+}
+
+.dt__dialog-cancel {
+  padding: var(--space-2xs, 4px) var(--space-s, 10px);
+  background: var(--surface-muted, #060813);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  color: var(--text-secondary, #9ea5c2);
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+
+.dt__dialog-confirm {
+  padding: var(--space-2xs, 4px) var(--space-s, 10px);
+  background: var(--feedback-error, #ef4444);
+  border: none;
+  border-radius: var(--radius-default, 5px);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+
+.dt__dialog-confirm:disabled,
+.dt__dialog-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dt__toast {
+  position: fixed;
+  bottom: var(--space-l, 24px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--feedback-success, #22c55e);
+  color: #fff;
+  padding: var(--space-xs, 6px) var(--space-m, 16px);
+  border-radius: var(--radius-pill, 9999px);
+  font-size: 0.8125rem;
+  z-index: 1001;
+  animation: dt-toast 2s ease-in-out;
+}
+
+@keyframes dt-toast {
+  0%, 80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .dt__views-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dt__table {
+    font-size: 0.8125rem;
+  }
+
+  .dt__th {
+    padding: var(--space-xs, 6px) var(--space-s, 10px);
+  }
+
+  .dt__td {
+    padding: var(--space-xs, 6px) var(--space-s, 10px);
+  }
+
+  .dt__pagination {
+    flex-wrap: wrap;
+    gap: var(--space-xs, 6px);
+  }
+
+  .dt__save-dialog {
+    flex-wrap: wrap;
+  }
 }
 </style>

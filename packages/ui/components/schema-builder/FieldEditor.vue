@@ -215,4 +215,11 @@ function save() {
   border-color: var(--surface-accent, #4a6cf7);
 }
 .sb-btn--primary:hover { opacity: 0.9; }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .sb-drawer {
+    width: 100%;
+  }
+}
 </style>

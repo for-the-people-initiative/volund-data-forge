@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const routePrefix = useRuntimeConfig().public.dataEngine.routePrefix
+const route = useRoute()
 
 const { data: dynamicCollections, refresh: refreshCollections } = useFetch<Array<{ name: string }>>('/api/schema', {
   key: 'collections-list',
@@ -18,11 +19,40 @@ function getEmoji(name: string) {
 function capitalize(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
+
+const sidebarOpen = ref(false)
+
+function toggleSidebar() {
+  sidebarOpen.value = !sidebarOpen.value
+}
+
+function closeSidebar() {
+  sidebarOpen.value = false
+}
+
+// Close sidebar on navigation
+watch(() => route.fullPath, () => {
+  closeSidebar()
+})
 </script>
 
 <template>
   <div class="de-layout">
-    <aside class="de-layout__sidebar">
+    <!-- Hamburger button (mobile only) -->
+    <button class="de-layout__hamburger" @click="toggleSidebar" aria-label="Menu">
+      <span class="de-layout__hamburger-line" />
+      <span class="de-layout__hamburger-line" />
+      <span class="de-layout__hamburger-line" />
+    </button>
+
+    <!-- Overlay (mobile only) -->
+    <div
+      v-if="sidebarOpen"
+      class="de-layout__overlay"
+      @click="closeSidebar"
+    />
+
+    <aside class="de-layout__sidebar" :class="{ 'de-layout__sidebar--open': sidebarOpen }">
       <NuxtLink :to="routePrefix" class="de-layout__brand">
         <strong>Data Engine</strong>
       </NuxtLink>
@@ -57,6 +87,43 @@ function capitalize(name: string) {
 .de-layout {
   min-height: 100vh;
   display: flex;
+}
+
+/* Hamburger button — mobile only */
+.de-layout__hamburger {
+  display: none;
+  position: fixed;
+  top: var(--space-s, 10px);
+  left: var(--space-s, 10px);
+  z-index: 1001;
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  padding: 8px;
+  cursor: pointer;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.de-layout__hamburger-line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text-default, #fff);
+  border-radius: 1px;
+}
+
+/* Overlay — mobile only */
+.de-layout__overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
 }
 
 .de-layout__sidebar {
@@ -132,5 +199,36 @@ function capitalize(name: string) {
   flex: 1;
   padding: var(--space-l, 28px);
   overflow-y: auto;
+  min-width: 0;
+}
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .de-layout__hamburger {
+    display: flex;
+  }
+
+  .de-layout__overlay {
+    display: block;
+  }
+
+  .de-layout__sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .de-layout__sidebar--open {
+    transform: translateX(0);
+  }
+
+  .de-layout__main {
+    padding: var(--space-m, 16px);
+    padding-top: 56px; /* space for hamburger */
+  }
 }
 </style>

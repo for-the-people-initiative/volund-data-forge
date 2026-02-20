@@ -199,4 +199,19 @@
   text-transform: uppercase;
   margin-right: var(--space-xs, 6px);
 }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .about {
+    max-width: 100%;
+  }
+
+  .about__title {
+    font-size: 1.5rem;
+  }
+
+  .about__hero {
+    padding: var(--space-m, 16px) 0;
+  }
+}
 </style>

@@ -396,4 +396,20 @@ function handleKeydown(e: KeyboardEvent) {
 .record-picker__done-btn:hover {
   background: var(--intent-action-hover);
 }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .record-picker__modal {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .record-picker__list {
+    max-height: none;
+    flex: 1;
+  }
+}
 </style>

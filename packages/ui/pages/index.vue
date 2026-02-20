@@ -149,4 +149,23 @@ function icon(name: string) {
 .dashboard__btn:hover {
   background: var(--intent-action-hover, #ea580c);
 }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .dashboard__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard__actions {
+    flex-direction: column;
+  }
+
+  .dashboard__btn {
+    text-align: center;
+  }
+
+  .dashboard__card {
+    padding: var(--space-s, 10px) var(--space-m, 16px);
+  }
+}
 </style>

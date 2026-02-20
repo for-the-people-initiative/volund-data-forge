@@ -537,4 +537,15 @@ onMounted(() => {
   color: var(--text-secondary, #9ea5c2);
   font-size: 0.9rem;
 }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .sb-container {
+    flex-direction: column;
+  }
+
+  .sb-actions {
+    flex-wrap: wrap;
+  }
+}
 </style>

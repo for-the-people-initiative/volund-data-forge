@@ -332,4 +332,11 @@ const filterableFields = computed(() =>
   color: var(--text-subtle, #525d8f);
   font-size: 0.75rem;
 }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .fb__grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

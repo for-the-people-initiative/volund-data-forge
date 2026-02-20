@@ -460,4 +460,20 @@ function fieldId(name: string) {
 .data-form__btn--secondary:hover {
   background: var(--intent-secondary-hover);
 }
+
+/* ─── Mobile < 768px ─── */
+@media (max-width: 767px) {
+  .data-form {
+    max-width: 100%;
+  }
+
+  .data-form__actions {
+    flex-direction: column;
+  }
+
+  .data-form__btn {
+    width: 100%;
+    text-align: center;
+  }
+}
 </style>

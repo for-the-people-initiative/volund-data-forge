@@ -5,12 +5,15 @@ const route = useRoute()
 const collection = computed(() => route.params.collection as string)
 const id = computed(() => route.params.id as string)
 
-const { getRecord } = useDataEngine()
+const router = useRouter()
+const { getRecord, deleteRecord } = useDataEngine()
 const { fields } = useSchema(collection.value)
 
 const editing = ref(false)
 const record = ref<Record<string, unknown> | null>(null)
 const loading = ref(true)
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
 
 async function loadRecord() {
   loading.value = true
@@ -31,6 +34,16 @@ function onSuccess(updated: Record<string, unknown>) {
   loadRecord() // refresh from server
 }
 
+async function handleDelete() {
+  deleting.value = true
+  try {
+    await deleteRecord(collection.value, id.value)
+    router.push(`/collections/${collection.value}`)
+  } finally {
+    deleting.value = false
+  }
+}
+
 function fieldLabel(name: string) {
   const f = fields.value.find((f: any) => f.name === name)
   return f?.label ?? name
@@ -44,6 +57,7 @@ function fieldLabel(name: string) {
     <div class="detail-header">
       <h1>{{ collection }} / {{ id }}</h1>
       <button v-if="!editing" class="edit-btn" @click="editing = true">Bewerken</button>
+      <button v-if="!editing" class="delete-btn" @click="showDeleteConfirm = true">Verwijderen</button>
     </div>
 
     <div v-if="loading" class="loading">Laden...</div>
@@ -68,6 +82,21 @@ function fieldLabel(name: string) {
     </div>
 
     <div v-else class="error">Record niet gevonden.</div>
+
+    <!-- Delete confirmation -->
+    <Teleport to="body">
+      <div v-if="showDeleteConfirm" class="delete-overlay" @click.self="showDeleteConfirm = false">
+        <div class="delete-dialog">
+          <p>Weet je zeker dat je dit record wilt verwijderen?</p>
+          <div class="delete-dialog-actions">
+            <button class="delete-dialog-cancel" @click="showDeleteConfirm = false" :disabled="deleting">Annuleren</button>
+            <button class="delete-dialog-confirm" @click="handleDelete" :disabled="deleting">
+              {{ deleting ? 'Bezig...' : 'Verwijderen' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -101,6 +130,68 @@ function fieldLabel(name: string) {
 }
 .edit-btn:hover {
   background: var(--intent-secondary-hover);
+}
+.delete-btn {
+  padding: var(--space-2xs) var(--space-s);
+  background: none;
+  color: var(--feedback-error, #ef4444);
+  border: 1px solid var(--feedback-error, #ef4444);
+  border-radius: var(--radius-default);
+  cursor: pointer;
+  font-size: 0.875rem;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+.delete-btn:hover {
+  opacity: 1;
+}
+.delete-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.delete-dialog {
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-rounded, 8px);
+  padding: var(--space-l, 24px);
+  max-width: 400px;
+  width: 90%;
+  color: var(--text-default, #fff);
+}
+.delete-dialog p {
+  margin: 0 0 var(--space-m, 16px);
+  line-height: 1.5;
+}
+.delete-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-s, 10px);
+}
+.delete-dialog-cancel {
+  padding: var(--space-2xs, 4px) var(--space-s, 10px);
+  background: var(--surface-muted, #060813);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  color: var(--text-secondary, #9ea5c2);
+  cursor: pointer;
+}
+.delete-dialog-confirm {
+  padding: var(--space-2xs, 4px) var(--space-s, 10px);
+  background: var(--feedback-error, #ef4444);
+  border: none;
+  border-radius: var(--radius-default, 5px);
+  color: #fff;
+  cursor: pointer;
+}
+.delete-dialog-confirm:disabled,
+.delete-dialog-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .loading, .error {
   color: var(--text-muted);
