@@ -91,6 +91,18 @@ watch(
           class="de-layout__nav-item"
           :aria-current="route.path === '/builder' ? 'page' : undefined"
         >🏗️ Schema Builder</NuxtLink>
+
+        <NuxtLink
+          to="/webhooks"
+          class="de-layout__nav-item"
+          :aria-current="route.path === '/webhooks' ? 'page' : undefined"
+        >🔔 Webhooks</NuxtLink>
+
+        <NuxtLink
+          to="/schema-overview"
+          class="de-layout__nav-item"
+          :aria-current="route.path === '/schema-overview' ? 'page' : undefined"
+        >🗺️ Schema Overzicht</NuxtLink>
       </nav>
       <div class="de-layout__nav-bottom">
         <NuxtLink

@@ -17,6 +17,78 @@ const baseUrl = config.public.dataEngine.apiBaseUrl
 const { fields, status: schemaStatus } = useSchema(toRef(() => props.collection))
 const { deleteRecord } = useDataEngine()
 
+// ─── Bulk selection ─────────────────────────────────────────
+const selectedIds = ref<Set<string>>(new Set())
+const bulkDeleting = ref(false)
+const bulkDeleteTarget = ref(false)
+const toastMessage = ref('')
+
+const allSelected = computed({
+  get: () => records.value.length > 0 && records.value.every((r: any) => selectedIds.value.has(r.id ?? r._id)),
+  set: (val: boolean) => {
+    if (val) {
+      records.value.forEach((r: any) => selectedIds.value.add(r.id ?? r._id))
+    } else {
+      selectedIds.value.clear()
+    }
+  },
+})
+
+function toggleSelect(record: any, e: Event) {
+  e.stopPropagation()
+  const id = record.id ?? record._id
+  if (selectedIds.value.has(id)) {
+    selectedIds.value.delete(id)
+  } else {
+    selectedIds.value.add(id)
+  }
+  // Trigger reactivity
+  selectedIds.value = new Set(selectedIds.value)
+}
+
+function toggleSelectAll(e: Event) {
+  e.stopPropagation()
+  allSelected.value = !allSelected.value
+  selectedIds.value = new Set(selectedIds.value)
+}
+
+function showToast(msg: string) {
+  toastMessage.value = msg
+  setTimeout(() => { toastMessage.value = '' }, 2500)
+}
+
+async function executeBulkDelete() {
+  bulkDeleting.value = true
+  try {
+    const ids = [...selectedIds.value]
+    await Promise.all(ids.map((id) => deleteRecord(props.collection, id)))
+    const count = ids.length
+    selectedIds.value = new Set()
+    bulkDeleteTarget.value = false
+    showToast(`${count} record(s) verwijderd`)
+    await refresh()
+  } catch (err: any) {
+    showToast('Bulk verwijderen mislukt')
+  } finally {
+    bulkDeleting.value = false
+  }
+}
+
+function exportSelectedJson() {
+  const selected = records.value.filter((r: any) => selectedIds.value.has(r.id ?? r._id))
+  const json = JSON.stringify(selected, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${props.collection}-export.json`
+  a.click()
+  URL.revokeObjectURL(url)
+  const count = selected.length
+  selectedIds.value = new Set()
+  showToast(`${count} record(s) geëxporteerd`)
+}
+
 // ─── Delete state ───────────────────────────────────────────
 const deleteTarget = ref<{ id: string; label: string } | null>(null)
 const deleting = ref(false)
@@ -324,11 +396,19 @@ function nextPage() {
       :fields="filterFields"
       :model-value="filters"
       @update:model-value="onFiltersUpdate"
-      @clear="
-        filters = {}
-        currentPage = 1
-      "
+      @clear="filters = {}; currentPage = 1"
     />
+
+    <!-- Bulk action bar -->
+    <div v-if="!isLoading && !fetchError && selectedIds.size > 0" class="dt__bulk-bar">
+      <span class="dt__bulk-count">{{ selectedIds.size }} geselecteerd</span>
+      <button class="dt__bulk-btn dt__bulk-btn--delete" @click="bulkDeleteTarget = true">
+        🗑️ Verwijderen
+      </button>
+      <button class="dt__bulk-btn dt__bulk-btn--export" @click="exportSelectedJson">
+        📥 Exporteren (JSON)
+      </button>
+    </div>
 
     <!-- Loading state -->
     <div v-if="isLoading" class="dt__loading">
@@ -350,6 +430,15 @@ function nextPage() {
       <table class="dt__table">
         <thead>
           <tr>
+            <th scope="col" class="dt__th dt__th--checkbox" @click.stop>
+              <input
+                type="checkbox"
+                class="dt__checkbox"
+                :checked="allSelected"
+                aria-label="Selecteer alles"
+                @change="toggleSelectAll($event)"
+              />
+            </th>
             <th
               v-for="col in columns"
               :key="col.name"
@@ -371,8 +460,18 @@ function nextPage() {
             v-for="(record, i) in records"
             :key="(record as any).id ?? i"
             class="dt__row"
+            :class="{ 'dt__row--selected': selectedIds.has((record as any).id ?? (record as any)._id) }"
             @click="goToRecord(record)"
           >
+            <td class="dt__td dt__td--checkbox" @click.stop>
+              <input
+                type="checkbox"
+                class="dt__checkbox"
+                :checked="selectedIds.has((record as any).id ?? (record as any)._id)"
+                :aria-label="`Selecteer ${(record as any).name ?? (record as any).id ?? 'record'}`"
+                @change="toggleSelect(record, $event)"
+              />
+            </td>
             <td
               v-for="col in columns"
               :key="col.name"
@@ -418,6 +517,25 @@ function nextPage() {
       <p>Geen records gevonden</p>
     </div>
 
+    <!-- Bulk delete confirmation dialog -->
+    <Teleport to="body">
+      <div v-if="bulkDeleteTarget" class="dt__overlay" @click.self="bulkDeleteTarget = false" @keydown.escape="bulkDeleteTarget = false">
+        <div class="dt__dialog" role="dialog" aria-modal="true" aria-labelledby="dt-bulk-delete-title">
+          <p id="dt-bulk-delete-title">
+            Weet je zeker dat je <strong>{{ selectedIds.size }} records</strong> wilt verwijderen?
+          </p>
+          <div class="dt__dialog-actions">
+            <button class="dt__dialog-cancel" @click="bulkDeleteTarget = false" :disabled="bulkDeleting">
+              Annuleren
+            </button>
+            <button class="dt__dialog-confirm" @click="executeBulkDelete" :disabled="bulkDeleting">
+              {{ bulkDeleting ? 'Bezig...' : 'Verwijderen' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Delete confirmation dialog -->
     <Teleport to="body">
       <div v-if="deleteTarget" class="dt__overlay" @click.self="cancelDelete" @keydown.escape="cancelDelete">
@@ -439,7 +557,7 @@ function nextPage() {
     </Teleport>
 
     <!-- Success feedback -->
-    <div v-if="deleteSuccess" class="dt__toast">Record verwijderd</div>
+    <div v-if="deleteSuccess || toastMessage" class="dt__toast">{{ toastMessage || 'Record verwijderd' }}</div>
 
     <!-- Pagination -->
     <div v-if="!isLoading && totalRecords > 0" class="dt__pagination">
@@ -568,6 +686,71 @@ function nextPage() {
   color: var(--text-subtle, #525d8f);
   font-size: 0.8125rem;
   cursor: pointer;
+}
+
+.dt__bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s, 10px);
+  padding: var(--space-xs, 6px) var(--space-s, 10px);
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--intent-action-default, #f97316);
+  border-radius: var(--radius-rounded, 8px);
+}
+
+.dt__bulk-count {
+  font-size: 0.8125rem;
+  color: var(--text-default, #fff);
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.dt__bulk-btn {
+  padding: var(--space-3xs, 2px) var(--space-s, 10px);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  height: 30px;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.dt__bulk-btn--delete {
+  background: var(--feedback-error, #ef4444);
+  border-color: var(--feedback-error, #ef4444);
+  color: #fff;
+}
+
+.dt__bulk-btn--delete:hover {
+  opacity: 0.9;
+}
+
+.dt__bulk-btn--export {
+  background: var(--surface-panel, #11162d);
+  color: var(--text-default, #fff);
+}
+
+.dt__bulk-btn--export:hover {
+  border-color: var(--intent-action-default, #f97316);
+}
+
+.dt__th--checkbox,
+.dt__td--checkbox {
+  width: 40px;
+  text-align: center;
+  padding: var(--space-s, 10px) var(--space-xs, 6px);
+}
+
+.dt__checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--intent-action-default, #f97316);
+}
+
+.dt__row--selected {
+  background: var(--intent-secondary-hover, #1a2244);
 }
 
 .dt__scroll {

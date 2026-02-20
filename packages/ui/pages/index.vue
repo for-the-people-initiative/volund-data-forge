@@ -8,10 +8,31 @@ const {
   data: collections,
   status,
   error: fetchError,
+  refresh: refreshCollections,
 } = await useFetch<Array<{ name: string; count: number; fieldCount: number }>>(
   `${baseUrl}/collections-list`,
   { key: 'collections-list' },
 )
+
+// Onboarding wizard: show when no custom collections exist
+const defaultCollections = ['contacts', 'companies']
+const showWizard = ref(false)
+
+function checkWizard() {
+  if (typeof window === 'undefined') return
+  if (localStorage.getItem('onboarding-wizard-dismissed') === 'true') return
+  const cols = collections.value ?? []
+  const hasCustom = cols.some((c) => !defaultCollections.includes(c.name))
+  showWizard.value = !hasCustom
+}
+
+function onWizardDone() {
+  showWizard.value = false
+  refreshCollections()
+}
+
+onMounted(checkWizard)
+watch(collections, checkWizard)
 
 const collectionLabels: Record<string, string> = {
   contacts: 'Contacten',
@@ -34,6 +55,7 @@ function icon(name: string) {
 
 <template>
   <div class="dashboard">
+    <OnboardingWizard v-if="showWizard" @done="onWizardDone" />
     <h1 class="dashboard__title">Dashboard</h1>
     <p class="dashboard__subtitle">CRM Overzicht</p>
 

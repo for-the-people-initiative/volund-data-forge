@@ -7,6 +7,7 @@ import type { DataEngineInstance } from '@data-engine/engine'
 import { createConsoleLogger } from '@data-engine/schema'
 import type { CollectionSchema } from '@data-engine/schema'
 import { setEngine, setMigrationManager } from '../utils/engine'
+import { initWebhooks, fireWebhooks } from '../utils/webhooks'
 import { MigrationManager } from '@data-engine/migration'
 import { existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -168,12 +169,32 @@ export default defineNitroPlugin(async (nitroApp) => {
     logger.info('[data-engine] Data already exists, skipping seed')
   }
 
-  // 6. Export engine + managers for server routes
+  // 6. Initialize webhooks
+  await initWebhooks(adapter)
+  logger.info('[data-engine] Webhooks initialized')
+
+  // Register webhook hooks on all collections
+  const hookCollections = [...persistedNames, 'companies', 'contacts'].filter(
+    (n) => !n.startsWith('_'),
+  )
+  for (const col of new Set(hookCollections)) {
+    engine.registerHook(col, 'afterCreate', (ctx) => {
+      fireWebhooks('create', ctx.collection, ctx.result)
+    })
+    engine.registerHook(col, 'afterUpdate', (ctx) => {
+      fireWebhooks('update', ctx.collection, ctx.result)
+    })
+    engine.registerHook(col, 'afterDelete', (ctx) => {
+      fireWebhooks('delete', ctx.collection, { query: ctx.query, count: ctx.result })
+    })
+  }
+
+  // 7. Export engine + managers for server routes
   setMigrationManager(migrationManager)
   setEngine(engine, registry, adapter, apiRouter)
   logger.info('[data-engine] ✅ CRM Ready (persistent)')
 
-  // 7. Cleanup on shutdown
+  // 8. Cleanup on shutdown
   nitroApp.hooks.hook('close', async () => {
     logger.info('[data-engine] Shutting down...')
     await instance?.destroy()
