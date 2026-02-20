@@ -1,0 +1,1 @@
+{"version":3,"file":"app.config.js","sourceRoot":"","sources":["app.config.ts"],"names":[],"mappings":"AAAA,eAAe,eAAe,CAAC;IAC7B,UAAU,EAAE;QACV,UAAU,EAAE,MAAM;QAClB,WAAW,EAAE,cAAc;QAC3B,KAAK,EAAE;YACL,UAAU,EAAE,sBAAsB;SACnC;KACF;CACF,CAAC,CAAA"}

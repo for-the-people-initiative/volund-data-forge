@@ -1,0 +1,25 @@
+{
+  "name": "@data-engine/migration",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@data-engine/schema": "workspace:*",
+    "@data-engine/adapter": "workspace:*"
+  },
+  "files": [
+    "dist"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "_hash": "wZDVIWFtyfbhLKJAVFGVh0WNfak9xBHLaotpjhE7fUw",
+  "project": {
+    "rootDir": "/home/claude/clawd/data-engine/packages/ui"
+  },
+  "versions": {
+    "nuxt": "3.21.1"
+  }
+}

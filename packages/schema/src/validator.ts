@@ -1,0 +1,94 @@
+// SE-003: Schema Validator
+
+import type { CollectionSchema, SchemaError } from './types.js';
+import { RESERVED_FIELDS } from './types.js';
+import { hasType } from './type-system.js';
+
+const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
+
+export function validateSchema(
+  schema: CollectionSchema,
+  knownCollections?: string[]
+): SchemaError[] {
+  const errors: SchemaError[] = [];
+
+  // Collection name format
+  if (!schema.name) {
+    errors.push({ path: 'name', message: 'Collection name is required' });
+  } else if (!COLLECTION_NAME_PATTERN.test(schema.name)) {
+    errors.push({
+      path: 'name',
+      message: `Collection name "${schema.name}" must be lowercase alphanumeric with underscores, starting with a letter`,
+    });
+  }
+
+  if (!schema.fields || !Array.isArray(schema.fields)) {
+    errors.push({ path: 'fields', message: 'Fields must be an array' });
+    return errors;
+  }
+
+  // Field name uniqueness
+  const fieldNames = new Set<string>();
+  for (let i = 0; i < schema.fields.length; i++) {
+    const field = schema.fields[i];
+    const path = `fields[${i}]`;
+
+    if (!field.name) {
+      errors.push({ path: `${path}.name`, message: 'Field name is required' });
+      continue;
+    }
+
+    // Reserved field check
+    if ((RESERVED_FIELDS as readonly string[]).includes(field.name)) {
+      errors.push({
+        path: `${path}.name`,
+        message: `"${field.name}" is a reserved system field`,
+      });
+    }
+
+    // Uniqueness
+    if (fieldNames.has(field.name)) {
+      errors.push({
+        path: `${path}.name`,
+        message: `Duplicate field name "${field.name}"`,
+      });
+    }
+    fieldNames.add(field.name);
+
+    // Type validity
+    if (!field.type) {
+      errors.push({ path: `${path}.type`, message: 'Field type is required' });
+    } else if (!hasType(field.type)) {
+      errors.push({
+        path: `${path}.type`,
+        message: `Unknown type "${field.type}"`,
+      });
+    }
+
+    // Relation validation
+    if (field.type === 'relation') {
+      if (!field.relation) {
+        errors.push({
+          path: `${path}.relation`,
+          message: 'Relation field must have a relation definition',
+        });
+      } else if (knownCollections && !knownCollections.includes(field.relation.target) && field.relation.target !== schema.name) {
+        errors.push({
+          path: `${path}.relation.target`,
+          message: `Relation target "${field.relation.target}" does not exist`,
+        });
+      }
+      // Self-referential is allowed (circular)
+    }
+
+    // Select options
+    if (field.type === 'select' && (!field.options || field.options.length === 0)) {
+      errors.push({
+        path: `${path}.options`,
+        message: 'Select field must have at least one option',
+      });
+    }
+  }
+
+  return errors;
+}
