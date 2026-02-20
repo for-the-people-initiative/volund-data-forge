@@ -4,7 +4,7 @@ definePageMeta({ layout: 'data-engine' })
 const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
 
-const { data: collections, status } = await useFetch<Array<{ name: string; count: number }>>(
+const { data: collections, status, error: fetchError } = await useFetch<Array<{ name: string; count: number }>>(
   `${baseUrl}/collections-list`,
   { key: 'collections-list-page' },
 )
@@ -20,6 +20,10 @@ const labels: Record<string, string> = {
     <h1>Collecties</h1>
 
     <div v-if="status === 'pending'">Laden...</div>
+
+    <div v-else-if="fetchError" style="color: var(--feedback-error, #ef4444); padding: var(--space-m, 16px) 0;">
+      ⚠️ Fout bij laden: {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
+    </div>
 
     <div v-else class="collections-grid">
       <NuxtLink

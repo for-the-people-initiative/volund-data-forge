@@ -4,7 +4,7 @@ definePageMeta({ layout: 'data-engine' })
 const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
 
-const { data: collections, status } = await useFetch<Array<{ name: string; count: number; fieldCount: number }>>(
+const { data: collections, status, error: fetchError } = await useFetch<Array<{ name: string; count: number; fieldCount: number }>>(
   `${baseUrl}/collections-list`,
   { key: 'collections-list' },
 )
@@ -34,6 +34,10 @@ function icon(name: string) {
     <p class="dashboard__subtitle">CRM Overzicht</p>
 
     <div v-if="status === 'pending'" class="dashboard__loading">Laden...</div>
+
+    <div v-else-if="fetchError" class="dashboard__loading" style="color: var(--feedback-error, #ef4444);">
+      ⚠️ Fout bij laden: {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
+    </div>
 
     <div v-else class="dashboard__grid">
       <NuxtLink

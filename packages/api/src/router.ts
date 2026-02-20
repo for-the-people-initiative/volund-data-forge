@@ -13,26 +13,20 @@ import type {
   RequestContext,
   ApiResponse,
   RouteHandler,
-  HookRegistry,
-  HookContext,
 } from './types.js';
 import { parseQueryParams, QueryParseError } from './query-parser.js';
 import { successList, successSingle, notFound, badRequest, serverError, errorResponse } from './response.js';
-import { executeHooks } from './hooks.js';
 
 export class ApiRouter {
   private engine: EngineInterface;
   private registry: SchemaRegistry;
-  private hookRegistry: HookRegistry | undefined;
 
   constructor(
     engine: EngineInterface,
     registry: SchemaRegistry,
-    hookRegistry?: HookRegistry,
   ) {
     this.engine = engine;
     this.registry = registry;
-    this.hookRegistry = hookRegistry;
   }
 
   /**
@@ -75,17 +69,7 @@ export class ApiRouter {
 
     try {
       const { ast, populate } = parseQueryParams(req.query);
-
-      // beforeRead hook
-      const hookCtx: HookContext = { collection: schema.name, event: 'beforeRead', query: ast };
-      await executeHooks(schema, 'beforeRead', hookCtx, this.hookRegistry);
-
       const data = await this.engine.findMany(schema.name, ast, populate);
-
-      // afterRead hook
-      const afterCtx: HookContext = { collection: schema.name, event: 'afterRead', query: ast, result: data };
-      await executeHooks(schema, 'afterRead', afterCtx, this.hookRegistry);
-
       const page = req.query['page'] ? Number(req.query['page']) : undefined;
       const limit = ast.limit;
       return successList(data, { total: data.length, page, limit });
@@ -103,14 +87,8 @@ export class ApiRouter {
       const { populate } = parseQueryParams(req.query);
       const query: QueryAST = { filters: { and: [{ field: 'id', operator: 'eq', value: id }] } };
 
-      const hookCtx: HookContext = { collection: schema.name, event: 'beforeRead', query };
-      await executeHooks(schema, 'beforeRead', hookCtx, this.hookRegistry);
-
       const data = await this.engine.findOne(schema.name, query, populate);
       if (!data) return notFound('Record not found');
-
-      const afterCtx: HookContext = { collection: schema.name, event: 'afterRead', query, result: data };
-      await executeHooks(schema, 'afterRead', afterCtx, this.hookRegistry);
 
       return successSingle(data);
     } catch (err) {
@@ -124,15 +102,7 @@ export class ApiRouter {
 
     try {
       const body = (req.body ?? {}) as Record<string, unknown>;
-
-      const hookCtx: HookContext = { collection: schema.name, event: 'beforeCreate', data: body };
-      await executeHooks(schema, 'beforeCreate', hookCtx, this.hookRegistry);
-
-      const created = await this.engine.create(schema.name, hookCtx.data ?? body);
-
-      const afterCtx: HookContext = { collection: schema.name, event: 'afterCreate', data: created, result: created };
-      await executeHooks(schema, 'afterCreate', afterCtx, this.hookRegistry);
-
+      const created = await this.engine.create(schema.name, body);
       return successSingle(created, 201);
     } catch (err) {
       return this.mapError(err);
@@ -148,14 +118,8 @@ export class ApiRouter {
       const body = (req.body ?? {}) as Record<string, unknown>;
       const query: QueryAST = { filters: { and: [{ field: 'id', operator: 'eq', value: id }] } };
 
-      const hookCtx: HookContext = { collection: schema.name, event: 'beforeUpdate', data: body, query };
-      await executeHooks(schema, 'beforeUpdate', hookCtx, this.hookRegistry);
-
-      const updated = await this.engine.update(schema.name, query, hookCtx.data ?? body);
+      const updated = await this.engine.update(schema.name, query, body);
       if (updated.length === 0) return notFound('Record not found');
-
-      const afterCtx: HookContext = { collection: schema.name, event: 'afterUpdate', data: updated[0], result: updated };
-      await executeHooks(schema, 'afterUpdate', afterCtx, this.hookRegistry);
 
       return successSingle(updated[0]!);
     } catch (err) {
@@ -171,14 +135,8 @@ export class ApiRouter {
       const id = req.params['id'];
       const query: QueryAST = { filters: { and: [{ field: 'id', operator: 'eq', value: id }] } };
 
-      const hookCtx: HookContext = { collection: schema.name, event: 'beforeDelete', query };
-      await executeHooks(schema, 'beforeDelete', hookCtx, this.hookRegistry);
-
       const count = await this.engine.delete(schema.name, query);
       if (count === 0) return notFound('Record not found');
-
-      const afterCtx: HookContext = { collection: schema.name, event: 'afterDelete', query, result: count };
-      await executeHooks(schema, 'afterDelete', afterCtx, this.hookRegistry);
 
       return { status: 204, body: null };
     } catch (err) {

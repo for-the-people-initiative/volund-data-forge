@@ -26,7 +26,7 @@ export type { TypeDefinition } from './type-system.js';
 export { registerType, getType, hasType, getAllTypes } from './type-system.js';
 
 // SE-003: Schema Validator
-export { validateSchema } from './validator.js';
+export { validateSchema, validateCollectionName, isInternalCollection } from './validator.js';
 
 // SE-004: Schema Registry
 export { SchemaRegistry } from './registry.js';

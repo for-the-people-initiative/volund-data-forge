@@ -29,15 +29,20 @@ function confirmDelete(record: any, e: Event) {
   deleteTarget.value = { id, label }
 }
 
+const deleteError = ref('')
+
 async function executeDelete() {
   if (!deleteTarget.value) return
   deleting.value = true
+  deleteError.value = ''
   try {
     await deleteRecord(props.collection, deleteTarget.value.id)
     deleteTarget.value = null
     deleteSuccess.value = true
     setTimeout(() => { deleteSuccess.value = false }, 2000)
     await refresh()
+  } catch (err: any) {
+    deleteError.value = err?.data?.error?.message ?? err?.message ?? 'Verwijderen mislukt'
   } finally {
     deleting.value = false
   }
@@ -160,7 +165,7 @@ const apiUrl = computed(() => {
 })
 
 // ─── Fetch records (reactive to apiUrl) ─────────────────────
-const { data: response, status: dataStatus, refresh } = await useFetch(
+const { data: response, status: dataStatus, error: fetchError, refresh } = await useFetch(
   apiUrl,
   { key: `records-${props.collection}`, watch: [apiUrl] },
 )
@@ -310,6 +315,12 @@ function nextPage() {
       <span>Laden...</span>
     </div>
 
+    <!-- Error state -->
+    <div v-else-if="fetchError" class="dt__error">
+      <p>⚠️ Fout bij laden: {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}</p>
+      <button class="dt__error-retry" @click="refresh()">Opnieuw proberen</button>
+    </div>
+
     <!-- Table -->
     <div v-else-if="records.length" class="dt__scroll">
       <table class="dt__table">
@@ -379,6 +390,7 @@ function nextPage() {
       <div v-if="deleteTarget" class="dt__overlay" @click.self="cancelDelete">
         <div class="dt__dialog">
           <p>Weet je zeker dat je <strong>{{ deleteTarget.label }}</strong> wilt verwijderen?</p>
+          <p v-if="deleteError" class="dt__dialog-error">{{ deleteError }}</p>
           <div class="dt__dialog-actions">
             <button class="dt__dialog-cancel" @click="cancelDelete" :disabled="deleting">Annuleren</button>
             <button class="dt__dialog-confirm" @click="executeDelete" :disabled="deleting">
@@ -633,6 +645,34 @@ function nextPage() {
   to { transform: rotate(360deg); }
 }
 
+.dt__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-s, 10px);
+  padding: var(--space-2xl, 68px);
+  color: var(--feedback-error, #ef4444);
+  font-size: 0.875rem;
+}
+
+.dt__error p {
+  margin: 0;
+}
+
+.dt__error-retry {
+  padding: var(--space-xs, 6px) var(--space-m, 16px);
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  color: var(--text-default, #fff);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.dt__error-retry:hover {
+  border-color: var(--intent-action-default, #f97316);
+}
+
 .dt__empty {
   display: flex;
   align-items: center;
@@ -757,6 +797,12 @@ function nextPage() {
   color: #fff;
   cursor: pointer;
   font-size: 0.8125rem;
+}
+
+.dt__dialog-error {
+  color: var(--feedback-error, #ef4444);
+  font-size: 0.8125rem;
+  margin: 0 0 var(--space-s, 10px);
 }
 
 .dt__dialog-confirm:disabled,

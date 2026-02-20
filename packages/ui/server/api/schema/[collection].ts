@@ -4,7 +4,7 @@
  * DELETE /api/schema/:collection — remove a collection from registry
  */
 import { getRegistry, getMigrationManager, waitForEngine } from '../../utils/engine';
-import { validateSchema, DataEngineError } from '@data-engine/schema';
+import { validateSchema, validateCollectionName, isInternalCollection, DataEngineError } from '@data-engine/schema';
 import type { CollectionSchema } from '@data-engine/schema';
 
 export default defineEventHandler(async (event) => {
@@ -13,6 +13,12 @@ export default defineEventHandler(async (event) => {
   if (!collection) {
     setResponseStatus(event, 400);
     return { error: { code: 'MISSING_COLLECTION', message: 'Collection name required' } };
+  }
+
+  // Block access to internal collections
+  if (isInternalCollection(collection)) {
+    setResponseStatus(event, 404);
+    return { error: { code: 'NOT_FOUND', message: 'Collection not found' } };
   }
 
   const method = getMethod(event);

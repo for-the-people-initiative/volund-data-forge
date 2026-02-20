@@ -14,8 +14,7 @@ export default defineEventHandler(async () => {
   for (const schema of allSchemas) {
     let count = 0;
     try {
-      const records = await adapter.findMany(schema.name, { filters: [] });
-      count = records.length;
+      count = await adapter.count(schema.name);
     } catch {
       // collection may not exist yet
     }

@@ -147,6 +147,9 @@ export interface DatabaseAdapter {
   update(collection: string, query: QueryAST, data: Record<string, unknown>): Promise<Record<string, unknown>[]>;
   delete(collection: string, query: QueryAST): Promise<number>;
 
+  // Aggregation
+  count(collection: string, query?: QueryAST): Promise<number>;
+
   // Relations
   findWithRelations(collection: string, query: QueryAST, populate: PopulateDefinition[]): Promise<Record<string, unknown>[]>;
 

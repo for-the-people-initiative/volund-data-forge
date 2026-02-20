@@ -45,13 +45,11 @@ watch(() => props.recordId, async (id) => {
   if (!id) return
   loading.value = true
   try {
-    const { data } = await getRecord(props.collection, id)
-    if (data.value) {
-      const raw = data.value as Record<string, unknown>
-      // API may wrap in { data: {...} }
-      const record = (raw.data ?? raw) as Record<string, unknown>
-      formData.value = { ...record }
-    }
+    const raw = await getRecord(props.collection, id)
+    const record = ((raw as any)?.data ?? raw) as Record<string, unknown>
+    formData.value = { ...record }
+  } catch (err: any) {
+    serverError.value = err?.data?.error?.message ?? err?.message ?? 'Record laden mislukt'
   } finally {
     loading.value = false
   }
@@ -63,8 +61,8 @@ watch(fields, async (f) => {
   for (const field of f) {
     if (field.type === 'relation' && field.relation?.target) {
       try {
-        const { data } = await listRecords(field.relation.target, { limit: 100 })
-        const records = (data.value as any)?.data ?? data.value ?? []
+        const result = await listRecords(field.relation.target, { limit: 100 })
+        const records = (result as any)?.data ?? result ?? []
         relationOptions.value[field.name] = Array.isArray(records)
           ? records.map((r: any) => ({
               id: String(r.id),
@@ -72,7 +70,6 @@ watch(fields, async (f) => {
             }))
           : []
       } catch {
-        // Fallback: no options available
         relationOptions.value[field.name] = []
       }
     }
@@ -82,14 +79,12 @@ watch(fields, async (f) => {
 function validate(): boolean {
   const errs: Record<string, string> = {}
   for (const field of fields.value) {
-    if (field.type === 'lookup') continue // Lookup fields are computed, skip validation
+    if (field.type === 'lookup') continue
     const val = formData.value[field.name]
-    // Required check
     if (field.required && (val === '' || val === null || val === undefined)) {
       errs[field.name] = `${field.label ?? field.name} is verplicht`
       continue
     }
-    // Type checks
     if (val !== '' && val !== null && val !== undefined) {
       if ((field.type === 'integer' || field.type === 'float') && isNaN(Number(val))) {
         errs[field.name] = `${field.label ?? field.name} moet een getal zijn`
@@ -110,10 +105,9 @@ async function handleSubmit() {
   submitting.value = true
   serverError.value = ''
 
-  // Build payload (exclude system fields and lookup fields)
   const payload: Record<string, unknown> = {}
   for (const field of fields.value) {
-    if (field.type === 'lookup') continue // Lookup fields are computed, not sent
+    if (field.type === 'lookup') continue
     let val = formData.value[field.name]
     if (field.type === 'integer' && val !== '' && val !== null) val = parseInt(String(val), 10)
     if (field.type === 'float' && val !== '' && val !== null) val = parseFloat(String(val))
@@ -122,28 +116,20 @@ async function handleSubmit() {
 
   try {
     if (isEditMode.value && props.recordId) {
-      const { data, error } = await updateRecord(props.collection, props.recordId, payload)
-      if (error.value) {
-        serverError.value = (error.value as any)?.data?.error?.message ?? 'Opslaan mislukt'
-        return
-      }
-      const rawUpdate = data.value as Record<string, unknown>
-      emit('success', ((rawUpdate?.data ?? rawUpdate) as Record<string, unknown>) ?? payload)
-    } else {
-      const { data, error } = await createRecord(props.collection, payload)
-      if (error.value) {
-        serverError.value = (error.value as any)?.data?.error?.message ?? 'Aanmaken mislukt'
-        return
-      }
-      const raw = data.value as Record<string, unknown>
-      const record = (raw?.data ?? raw) as Record<string, unknown>
+      const result = await updateRecord(props.collection, props.recordId, payload)
+      const record = ((result as any)?.data ?? result) as Record<string, unknown>
       emit('success', record ?? payload)
-      // Redirect to detail page
+    } else {
+      const result = await createRecord(props.collection, payload)
+      const record = ((result as any)?.data ?? result) as Record<string, unknown>
+      emit('success', record ?? payload)
       const newId = record?.id
       if (newId) {
         router.push(`/collections/${props.collection}/${newId}`)
       }
     }
+  } catch (err: any) {
+    serverError.value = err?.data?.error?.message ?? err?.message ?? 'Opslaan mislukt'
   } finally {
     submitting.value = false
   }
@@ -461,7 +447,6 @@ function fieldId(name: string) {
   background: var(--intent-secondary-hover);
 }
 
-/* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {
   .data-form {
     max-width: 100%;

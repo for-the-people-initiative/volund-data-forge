@@ -4,7 +4,22 @@ import type { CollectionSchema, SchemaError } from './types.js';
 import { RESERVED_FIELDS } from './types.js';
 import { hasType } from './type-system.js';
 
-const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_]*$/;
+const COLLECTION_NAME_PATTERN = /^[a-z][a-z0-9_-]*$/;
+const COLLECTION_NAME_MAX_LENGTH = 64;
+
+/** Check if a collection name is reserved for internal use (starts with _) */
+export function isInternalCollection(name: string): boolean {
+  return name.startsWith('_');
+}
+
+/** Validate a collection name format (without schema context) */
+export function validateCollectionName(name: string): string | null {
+  if (!name) return 'Collection name is required';
+  if (name.length > COLLECTION_NAME_MAX_LENGTH) return `Collection name must be at most ${COLLECTION_NAME_MAX_LENGTH} characters`;
+  if (isInternalCollection(name)) return 'Collection names starting with "_" are reserved for system use';
+  if (!COLLECTION_NAME_PATTERN.test(name)) return `Collection name "${name}" must be lowercase alphanumeric with underscores/hyphens, starting with a letter`;
+  return null;
+}
 
 export function validateSchema(
   schema: CollectionSchema,
@@ -13,13 +28,9 @@ export function validateSchema(
   const errors: SchemaError[] = [];
 
   // Collection name format
-  if (!schema.name) {
-    errors.push({ path: 'name', message: 'Collection name is required' });
-  } else if (!COLLECTION_NAME_PATTERN.test(schema.name)) {
-    errors.push({
-      path: 'name',
-      message: `Collection name "${schema.name}" must be lowercase alphanumeric with underscores, starting with a letter`,
-    });
+  const nameError = validateCollectionName(schema.name);
+  if (nameError) {
+    errors.push({ path: 'name', message: nameError });
   }
 
   if (!schema.fields || !Array.isArray(schema.fields)) {

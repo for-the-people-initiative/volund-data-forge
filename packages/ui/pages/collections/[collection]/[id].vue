@@ -16,9 +16,8 @@ const deleting = ref(false)
 const { data: record, status: recordStatus, refresh: refreshRecord } = await useAsyncData(
   `record-${collection.value}-${id.value}`,
   async () => {
-    const { data } = await getRecord(collection.value, id.value)
-    const raw = data.value as Record<string, unknown>
-    return ((raw?.data ?? raw) as Record<string, unknown>) ?? null
+    const raw = await getRecord(collection.value, id.value)
+    return ((raw as any)?.data ?? raw) as Record<string, unknown> ?? null
   },
 )
 
@@ -29,11 +28,16 @@ function onSuccess(_updated: Record<string, unknown>) {
   refreshRecord() // refresh from server
 }
 
+const deleteError = ref('')
+
 async function handleDelete() {
   deleting.value = true
+  deleteError.value = ''
   try {
     await deleteRecord(collection.value, id.value)
     router.push(`/collections/${collection.value}`)
+  } catch (err: any) {
+    deleteError.value = err?.data?.error?.message ?? err?.message ?? 'Verwijderen mislukt'
   } finally {
     deleting.value = false
   }
@@ -83,6 +87,7 @@ function fieldLabel(name: string) {
       <div v-if="showDeleteConfirm" class="delete-overlay" @click.self="showDeleteConfirm = false">
         <div class="delete-dialog">
           <p>Weet je zeker dat je dit record wilt verwijderen?</p>
+          <p v-if="deleteError" style="color: var(--feedback-error, #ef4444); font-size: 0.8125rem;">{{ deleteError }}</p>
           <div class="delete-dialog-actions">
             <button class="delete-dialog-cancel" @click="showDeleteConfirm = false" :disabled="deleting">Annuleren</button>
             <button class="delete-dialog-confirm" @click="handleDelete" :disabled="deleting">

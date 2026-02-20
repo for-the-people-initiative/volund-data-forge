@@ -10,6 +10,14 @@ import { nativeTypeToFieldType } from './type-mapping.js';
 /** Tables prefixed with _de_ are engine-managed metadata tables */
 const ENGINE_PREFIX = '_de_';
 
+/** Validate identifier to prevent SQL injection in PRAGMA calls */
+const SAFE_IDENTIFIER = /^[a-zA-Z0-9_]+$/;
+function assertSafeIdentifier(name: string): void {
+  if (!SAFE_IDENTIFIER.test(name)) {
+    throw new Error(`Unsafe identifier rejected: "${name}"`);
+  }
+}
+
 function isSQLite(knex: Knex): boolean {
   // knex.client is typed as `any` in Knex's own type definitions
   const knexClient: { config?: { client?: string } } | undefined = knex.client;
@@ -53,6 +61,7 @@ async function getTablesSQLite(knex: Knex): Promise<string[]> {
 }
 
 async function getColumnsSQLite(knex: Knex, table: string): Promise<ColumnInfo[]> {
+  assertSafeIdentifier(table);
   const rows = await knex.raw(`PRAGMA table_info(\`${table}\`)`);
   const cols: Record<string, unknown>[] = Array.isArray(rows) ? rows : (rows as { rows?: Record<string, unknown>[] }).rows ?? [];
   return cols.map((r: any) => ({
@@ -67,6 +76,7 @@ async function getColumnsSQLite(knex: Knex, table: string): Promise<ColumnInfo[]
 }
 
 async function getForeignKeysSQLite(knex: Knex, table: string): Promise<ForeignKeyInfo[]> {
+  assertSafeIdentifier(table);
   const rows = await knex.raw(`PRAGMA foreign_key_list("${table}")`);
   const fks = Array.isArray(rows) ? rows : rows.rows ?? [];
   return fks.map((r: any) => ({
@@ -79,10 +89,12 @@ async function getForeignKeysSQLite(knex: Knex, table: string): Promise<ForeignK
 }
 
 async function getIndexesSQLite(knex: Knex, table: string): Promise<IndexInfo[]> {
+  assertSafeIdentifier(table);
   const rows = await knex.raw(`PRAGMA index_list("${table}")`);
   const idxList = Array.isArray(rows) ? rows : rows.rows ?? [];
   const result: IndexInfo[] = [];
   for (const idx of idxList) {
+    assertSafeIdentifier(idx.name);
     const infoRows = await knex.raw(`PRAGMA index_info("${idx.name}")`);
     const info = Array.isArray(infoRows) ? infoRows : infoRows.rows ?? [];
     result.push({

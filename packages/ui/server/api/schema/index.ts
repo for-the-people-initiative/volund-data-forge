@@ -3,7 +3,7 @@
  * POST /api/schema — register a new collection schema
  */
 import { getRegistry, getMigrationManager, waitForEngine } from '../../utils/engine';
-import { validateSchema, DataEngineError } from '@data-engine/schema';
+import { validateSchema, isInternalCollection, DataEngineError } from '@data-engine/schema';
 import type { CollectionSchema } from '@data-engine/schema';
 
 export default defineEventHandler(async (event) => {

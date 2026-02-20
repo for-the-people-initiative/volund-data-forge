@@ -8,6 +8,7 @@
   "include": ["src"],
   "references": [
     { "path": "../schema" },
-    { "path": "../adapter" }
+    { "path": "../adapter" },
+    { "path": "../adapter-knex" }
   ]
 }

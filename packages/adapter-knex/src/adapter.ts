@@ -128,6 +128,15 @@ export class KnexAdapter implements DatabaseAdapter {
           }
         });
 
+        // Create indexes on foreign key / relation columns
+        for (const field of dbFields) {
+          if (field.type === 'relation' && field.relation) {
+            if (field.relation.type === 'manyToOne' || field.relation.type === 'oneToOne') {
+              await trx.raw(`CREATE INDEX IF NOT EXISTS idx_${name}_${field.name} ON "${name}"("${field.name}")`);
+            }
+          }
+        }
+
         // Create junction tables for manyToMany relations
         for (const field of dbFields) {
           if (field.type === 'relation' && field.relation?.type === 'manyToMany') {
@@ -173,6 +182,13 @@ export class KnexAdapter implements DatabaseAdapter {
             }
           }
         });
+
+        // Index for relation FK columns
+        if (field.type === 'relation' && field.relation) {
+          if (field.relation.type === 'manyToOne' || field.relation.type === 'oneToOne') {
+            await trx.raw(`CREATE INDEX IF NOT EXISTS idx_${collection}_${field.name} ON "${collection}"("${field.name}")`);
+          }
+        }
 
         // Junction table for m2m
         if (field.type === 'relation' && field.relation?.type === 'manyToMany') {
@@ -304,6 +320,22 @@ export class KnexAdapter implements DatabaseAdapter {
       return await qb.delete();
     } catch (err) {
       throw new QueryError(`Failed to delete records from '${collection}'`, err);
+    }
+  }
+
+  // ── Aggregation ───────────────────────────────────────────────────
+
+  async count(collection: string, query?: QueryAST): Promise<number> {
+    const db = this.db();
+    try {
+      let qb = db(collection);
+      if (query) {
+        qb = applyQueryAST(qb, { ...query, limit: undefined, offset: undefined, sort: undefined });
+      }
+      const result = await qb.count('* as count').first();
+      return Number(result?.count ?? 0);
+    } catch (err) {
+      throw new QueryError(`Failed to count records in '${collection}'`, err);
     }
   }
 

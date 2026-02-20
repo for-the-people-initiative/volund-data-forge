@@ -18,9 +18,16 @@
   "dependencies": {
     "@data-engine/schema": "workspace:*",
     "@data-engine/adapter": "workspace:*",
-    "@data-engine/adapter-knex": "workspace:*",
     "@data-engine/api": "workspace:*",
     "@data-engine/migration": "workspace:*"
+  },
+  "peerDependencies": {
+    "@data-engine/adapter-knex": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@data-engine/adapter-knex": {
+      "optional": true
+    }
   },
   "files": [
     "dist"

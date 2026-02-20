@@ -6,4 +6,5 @@ export default defineConfig({
   dts: { tsconfig: 'tsconfig.json', compilerOptions: { composite: false } },
   clean: true,
   outDir: 'dist',
+  external: ['@data-engine/adapter-knex'],
 })

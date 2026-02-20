@@ -51,8 +51,8 @@ async function loadRecords() {
   if (allRecords.value.length > 0) return // already loaded
   loading.value = true
   try {
-    const { data } = await listRecords(props.collection, { limit: 100 })
-    const records = (data.value as any)?.data ?? data.value ?? []
+    const result = await listRecords(props.collection, { limit: 100 })
+    const records = (result as any)?.data ?? result ?? []
     allRecords.value = Array.isArray(records)
       ? records.map((r: any) => ({
           id: String(r.id),

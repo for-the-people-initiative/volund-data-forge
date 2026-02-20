@@ -159,6 +159,9 @@ export class DataEngine {
 
     await this.fireHooks({ collection, event: 'afterRead', query: effectiveQuery, result: results, transaction: txClient });
 
+    // Resolve lookup fields
+    await this.resolveLookups(collection, results, txClient);
+
     return results;
   }
 
@@ -289,71 +292,121 @@ export class DataEngine {
   ): Promise<void> {
     if (ids.length === 0) return;
 
-    // Find all collections that reference this collection via relation fields
+    // Only iterate schemas that have relation fields targeting this collection
+    const referencingRelations = this.getReferencingRelations(collection);
+
+    for (const { schemaName, fieldName, rel } of referencingRelations) {
+      const policy: OnDeletePolicy = rel.onDelete ?? 'setNull';
+
+      if (rel.type === 'manyToOne' || rel.type === 'oneToOne') {
+        const fk = rel.foreignKey ?? `${fieldName}_id`;
+        const relQuery: QueryAST = {
+          filters: { and: [{ field: fk, operator: 'in', value: ids }] },
+        };
+
+        if (policy === 'restrict') {
+          const related = await client.findMany(schemaName, relQuery);
+          if (related.length > 0) {
+            throw new EngineError(
+              `Kan niet verwijderen: er zijn nog ${related.length} gekoppelde ${schemaName} records`,
+              'RESTRICT_VIOLATION',
+              409,
+            );
+          }
+        } else if (policy === 'cascade') {
+          await client.delete(schemaName, relQuery);
+        } else {
+          // setNull — direct update without pre-fetch
+          await client.update(schemaName, relQuery, { [fk]: null });
+        }
+      } else if (rel.type === 'oneToMany') {
+        const fk = rel.foreignKey ?? `${collection}_id`;
+        const relQuery: QueryAST = {
+          filters: { and: [{ field: fk, operator: 'in', value: ids }] },
+        };
+
+        if (policy === 'restrict') {
+          const related = await client.findMany(schemaName, relQuery);
+          if (related.length > 0) {
+            throw new EngineError(
+              `Kan niet verwijderen: er zijn nog ${related.length} gekoppelde ${schemaName} records`,
+              'RESTRICT_VIOLATION',
+              409,
+            );
+          }
+        } else if (policy === 'cascade') {
+          await client.delete(schemaName, relQuery);
+        } else {
+          // setNull — direct update without pre-fetch
+          await client.update(schemaName, relQuery, { [fk]: null });
+        }
+      }
+      // manyToMany junction cleanup is handled by DB-level CASCADE on junction tables
+    }
+  }
+
+  /**
+   * Build a list of (schema, field, relation) tuples that reference the given collection.
+   * Only scans schemas that actually have relation fields pointing to `collection`.
+   */
+  private getReferencingRelations(collection: string): Array<{ schemaName: string; fieldName: string; rel: NonNullable<import('@data-engine/schema').FieldDefinition['relation']> }> {
+    const result: Array<{ schemaName: string; fieldName: string; rel: NonNullable<import('@data-engine/schema').FieldDefinition['relation']> }> = [];
     for (const schema of this.registry.getAll()) {
       for (const field of schema.fields) {
-        if (field.type !== 'relation' || !field.relation) continue;
-        if (field.relation.target !== collection) continue;
-
-        const rel = field.relation;
-        const policy: OnDeletePolicy = rel.onDelete ?? 'setNull';
-        const fk = rel.foreignKey ?? `${field.name}_id`;
-
-        if (rel.type === 'manyToOne' || rel.type === 'oneToOne') {
-          const relQuery: QueryAST = {
-            filters: { and: [{ field: fk, operator: 'in', value: ids }] },
-          };
-
-          if (policy === 'restrict') {
-            const related = await client.findMany(schema.name, relQuery);
-            if (related.length > 0) {
-              throw new EngineError(
-                `Kan niet verwijderen: er zijn nog ${related.length} gekoppelde ${schema.name} records`,
-                'RESTRICT_VIOLATION',
-                409,
-              );
-            }
-          } else if (policy === 'cascade') {
-            const related = await client.findMany(schema.name, relQuery);
-            if (related.length > 0) {
-              await client.delete(schema.name, relQuery);
-            }
-          } else {
-            // setNull (default)
-            const related = await client.findMany(schema.name, relQuery);
-            if (related.length > 0) {
-              await client.update(schema.name, relQuery, { [fk]: null });
-            }
-          }
-        } else if (rel.type === 'oneToMany') {
-          const fkOneToMany = rel.foreignKey ?? `${collection}_id`;
-          const relQuery: QueryAST = {
-            filters: { and: [{ field: fkOneToMany, operator: 'in', value: ids }] },
-          };
-
-          if (policy === 'restrict') {
-            const related = await client.findMany(schema.name, relQuery);
-            if (related.length > 0) {
-              throw new EngineError(
-                `Kan niet verwijderen: er zijn nog ${related.length} gekoppelde ${schema.name} records`,
-                'RESTRICT_VIOLATION',
-                409,
-              );
-            }
-          } else if (policy === 'cascade') {
-            const related = await client.findMany(schema.name, relQuery);
-            if (related.length > 0) {
-              await client.delete(schema.name, relQuery);
-            }
-          } else {
-            // setNull
-            const related = await client.findMany(schema.name, relQuery);
-            if (related.length > 0) {
-              await client.update(schema.name, relQuery, { [fkOneToMany]: null });
-            }
-          }
+        if (field.type === 'relation' && field.relation && field.relation.target === collection) {
+          result.push({ schemaName: schema.name, fieldName: field.name, rel: field.relation });
         }
-        // manyToMany junction cleanup is handled by DB-level CASCADE on junction tables
+      }
+    }
+    return result;
+  }
+
+  // ─── Lookup Resolution ─────────────────────────────────────────────
+
+  private async resolveLookups(
+    collection: string,
+    records: Record<string, unknown>[],
+    txClient?: TransactionClient,
+  ): Promise<void> {
+    if (records.length === 0) return;
+
+    const schema = this.getSchema(collection);
+    const lookupFields = schema.fields.filter(f => f.type === 'lookup' && f.lookup);
+    if (lookupFields.length === 0) return;
+
+    const client = txClient ?? this.adapter;
+
+    for (const lf of lookupFields) {
+      const lookup = lf.lookup!;
+      // Find the relation field this lookup references
+      const relationField = schema.fields.find(f => f.name === lookup.relation);
+      if (!relationField?.relation?.target) continue;
+
+      const target = relationField.relation.target;
+      const fk = relationField.name;
+
+      // Collect all FK values
+      const fkValues = [...new Set(records.map(r => r[fk]).filter(Boolean))];
+      if (fkValues.length === 0) {
+        for (const record of records) { record[lf.name] = null; }
+        continue;
+      }
+
+      // Fetch target records
+      const related = await client.findMany(target, {
+        filters: { and: [{ field: 'id', operator: 'in', value: fkValues }] },
+      });
+
+      // Build lookup map: id → field value
+      const lookupMap = new Map<unknown, unknown>();
+      for (const r of related) {
+        lookupMap.set(r['id'], r[lookup.field] ?? null);
+      }
+
+      // Set the lookup value on each record
+      for (const record of records) {
+        const fkVal = record[fk];
+        record[lf.name] = fkVal != null ? (lookupMap.get(fkVal) ?? null) : null;
       }
     }
   }

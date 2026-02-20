@@ -2,9 +2,9 @@
  * Catch-all route for /api/collections/**
  * Delegates to the Data Engine's ApiRouter (H3 adapter pattern).
  */
-import { getApiRouter, getRegistry, getAdapter, waitForEngine } from '../../utils/engine';
+import { getApiRouter, getRegistry, waitForEngine } from '../../utils/engine';
 import type { RequestContext } from '@data-engine/api';
-import type { FieldDefinition } from '@data-engine/schema';
+import { isInternalCollection, validateCollectionName } from '@data-engine/schema';
 
 export default defineEventHandler(async (event) => {
   await waitForEngine();
@@ -25,6 +25,19 @@ export default defineEventHandler(async (event) => {
   if (!collection) {
     setResponseStatus(event, 400);
     return { error: { code: 'MISSING_COLLECTION', message: 'Collection name required' } };
+  }
+
+  // Block access to internal tables
+  if (isInternalCollection(collection)) {
+    setResponseStatus(event, 404);
+    return { error: { code: 'NOT_FOUND', message: 'Collection not found' } };
+  }
+
+  // Validate collection name format
+  const nameError = validateCollectionName(collection);
+  if (nameError) {
+    setResponseStatus(event, 400);
+    return { error: { code: 'INVALID_COLLECTION_NAME', message: nameError } };
   }
 
   // Schema endpoint: GET /api/collections/:collection/schema
@@ -103,73 +116,5 @@ export default defineEventHandler(async (event) => {
 
   setResponseHeader(event, 'content-type', 'application/json');
 
-  // Resolve lookup fields for GET requests
-  if (method === 'GET' && response.status >= 200 && response.status < 300) {
-    const registry = getRegistry();
-    const schema = registry.get(collection);
-    if (schema) {
-      const lookupFields = schema.fields.filter((f: FieldDefinition) => f.type === 'lookup' && f.lookup);
-      if (lookupFields.length > 0) {
-        try {
-          await resolveLookups(response.body, lookupFields, schema, registry);
-        } catch {
-          // Don't fail the request if lookup resolution fails
-        }
-      }
-    }
-  }
-
   return response.body;
 });
-
-/**
- * Resolve lookup fields by fetching related data.
- * Modifies records in-place, adding the looked-up value under the field name.
- */
-async function resolveLookups(
-  body: any,
-  lookupFields: FieldDefinition[],
-  schema: any,
-  registry: any,
-) {
-  // body can be { data: [...], meta } or { data: {...} } or [...]
-  const records = Array.isArray(body?.data) ? body.data
-    : Array.isArray(body) ? body
-    : body?.data ? [body.data]
-    : [];
-
-  if (records.length === 0) return;
-
-  const adapter = getAdapter();
-
-  for (const lf of lookupFields) {
-    const lookup = lf.lookup!;
-    // Find the relation field this lookup references
-    const relationField = schema.fields.find((f: FieldDefinition) => f.name === lookup.relation);
-    if (!relationField?.relation?.target) continue;
-
-    const target = relationField.relation.target;
-    const fk = relationField.name; // The relation field stores the FK value
-
-    // Collect all FK values
-    const fkValues = [...new Set(records.map((r: any) => r[fk]).filter(Boolean))];
-    if (fkValues.length === 0) continue;
-
-    // Fetch the target records
-    const related = await adapter.findMany(target, {
-      filters: { and: [{ field: 'id', operator: 'in', value: fkValues }] },
-    });
-
-    // Build lookup map: id → field value
-    const lookupMap = new Map<unknown, unknown>();
-    for (const r of related) {
-      lookupMap.set(r.id, r[lookup.field] ?? null);
-    }
-
-    // Set the lookup value on each record
-    for (const record of records) {
-      const fkVal = record[fk];
-      record[lf.name] = fkVal != null ? (lookupMap.get(fkVal) ?? null) : null;
-    }
-  }
-}

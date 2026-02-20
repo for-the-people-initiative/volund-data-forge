@@ -5,7 +5,6 @@
 import { SchemaRegistry, ConfigError, createSilentLogger } from '@data-engine/schema';
 import type { Logger } from '@data-engine/schema';
 import type { DatabaseAdapter } from '@data-engine/adapter';
-import { KnexAdapter } from '@data-engine/adapter-knex';
 import { DataEngine } from './engine.js';
 import { ApiRouter } from '@data-engine/api';
 import { MigrationManager } from '@data-engine/migration';
@@ -19,6 +18,8 @@ export interface DataEngineConfig {
     connection: Record<string, unknown>;
     primaryKey?: 'uuid' | 'auto-increment';
   };
+  /** Pre-constructed adapter — if provided, database config is ignored for adapter creation */
+  adapter?: DatabaseAdapter;
   options?: {
     defaultLimit?: number;
     logger?: Logger;
@@ -38,7 +39,7 @@ export interface DataEngineInstance {
 
 const SUPPORTED_CLIENTS = ['better-sqlite3', 'sqlite3', 'pg', 'mysql2'];
 
-function createAdapter(config: DataEngineConfig, logger?: Logger): DatabaseAdapter {
+async function createAdapter(config: DataEngineConfig, logger?: Logger): Promise<DatabaseAdapter> {
   const { client } = config.database;
 
   if (!SUPPORTED_CLIENTS.includes(client)) {
@@ -47,6 +48,9 @@ function createAdapter(config: DataEngineConfig, logger?: Logger): DatabaseAdapt
       { client, supported: SUPPORTED_CLIENTS },
     );
   }
+
+  // Dynamic import to avoid hard dependency on @data-engine/adapter-knex
+  const { KnexAdapter } = await import('@data-engine/adapter-knex');
 
   const isSQLite = client === 'better-sqlite3' || client === 'sqlite3';
 
@@ -71,8 +75,8 @@ let destroyed = false;
 export async function createDataEngine(config: DataEngineConfig): Promise<DataEngineInstance> {
   const logger = config.options?.logger;
 
-  // 1. Create adapter
-  const adapter = createAdapter(config, logger);
+  // 1. Create adapter (use injected adapter or create via dynamic import)
+  const adapter = config.adapter ?? await createAdapter(config, logger);
 
   // 2. Connect
   await adapter.connect();
