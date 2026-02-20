@@ -14,7 +14,12 @@ const labels: Record<string, string> = {
   <div>
     <div class="collection-header">
       <h1 class="collection-header__title">{{ labels[collection] ?? collection }}</h1>
-      <NuxtLink :to="`/collections/${collection}/new`" class="collection-header__btn">+ Nieuw</NuxtLink>
+      <div class="collection-header__actions">
+        <NuxtLink :to="`/builder?collection=${collection}`" class="collection-header__btn collection-header__btn--edit">
+          ✎ Bewerken
+        </NuxtLink>
+        <NuxtLink :to="`/collections/${collection}/new`" class="collection-header__btn">+ Nieuw</NuxtLink>
+      </div>
     </div>
     <DataTable :collection="collection" :page-size="20" />
   </div>
@@ -33,6 +38,11 @@ const labels: Record<string, string> = {
   margin: 0;
 }
 
+.collection-header__actions {
+  display: flex;
+  gap: var(--space-s, 10px);
+}
+
 .collection-header__btn {
   padding: var(--space-xs, 6px) var(--space-m, 16px);
   background: var(--intent-action-default, #f97316);
@@ -46,5 +56,15 @@ const labels: Record<string, string> = {
 
 .collection-header__btn:hover {
   background: var(--intent-action-hover, #ea580c);
+}
+
+.collection-header__btn--edit {
+  background: var(--surface-interactive, #232a4d);
+  color: var(--text-default, #fff);
+  border: 1px solid var(--border-subtle, #1a2244);
+}
+
+.collection-header__btn--edit:hover {
+  background: var(--surface-hover, #2d3566);
 }
 </style>

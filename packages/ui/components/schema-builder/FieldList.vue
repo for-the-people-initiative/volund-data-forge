@@ -23,7 +23,7 @@ useDraggable(listRef, localFields, {
 
 const typeLabels: Record<string, string> = {
   text: 'tekst', integer: 'geheel', float: 'komma', boolean: 'boolean',
-  datetime: 'datum', select: 'selectie', email: 'email', relation: 'relatie',
+  datetime: 'datum', select: 'selectie', email: 'email', relation: 'koppeling',
 }
 </script>
 
