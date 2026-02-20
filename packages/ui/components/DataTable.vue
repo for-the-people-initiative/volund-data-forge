@@ -39,7 +39,9 @@ async function executeDelete() {
     await deleteRecord(props.collection, deleteTarget.value.id)
     deleteTarget.value = null
     deleteSuccess.value = true
-    setTimeout(() => { deleteSuccess.value = false }, 2000)
+    setTimeout(() => {
+      deleteSuccess.value = false
+    }, 2000)
     await refresh()
   } catch (err: any) {
     deleteError.value = err?.data?.error?.message ?? err?.message ?? 'Verwijderen mislukt'
@@ -78,7 +80,9 @@ function loadViews() {
   try {
     const raw = localStorage.getItem(VIEWS_KEY.value)
     savedViews.value = raw ? JSON.parse(raw) : []
-  } catch { savedViews.value = [] }
+  } catch {
+    savedViews.value = []
+  }
 }
 
 function persistViews() {
@@ -89,7 +93,7 @@ function persistViews() {
 function saveView() {
   const name = newViewName.value.trim()
   if (!name) return
-  const existing = savedViews.value.findIndex(v => v.name === name)
+  const existing = savedViews.value.findIndex((v) => v.name === name)
   const view: SavedView = {
     name,
     filters: { ...filters.value },
@@ -114,7 +118,7 @@ function switchView(name: string) {
     sortField.value = null
     sortDir.value = 'asc'
   } else {
-    const view = savedViews.value.find(v => v.name === name)
+    const view = savedViews.value.find((v) => v.name === name)
     if (view) {
       filters.value = { ...view.filters }
       sortField.value = view.sortField
@@ -125,7 +129,7 @@ function switchView(name: string) {
 }
 
 function deleteView(name: string) {
-  savedViews.value = savedViews.value.filter(v => v.name !== name)
+  savedViews.value = savedViews.value.filter((v) => v.name !== name)
   persistViews()
   if (currentViewName.value === name) {
     switchView('Standaard')
@@ -165,10 +169,12 @@ const apiUrl = computed(() => {
 })
 
 // ─── Fetch records (reactive to apiUrl) ─────────────────────
-const { data: response, status: dataStatus, error: fetchError, refresh } = await useFetch(
-  apiUrl,
-  { key: `records-${props.collection}`, watch: [apiUrl] },
-)
+const {
+  data: response,
+  status: dataStatus,
+  error: fetchError,
+  refresh,
+} = await useFetch(apiUrl, { key: `records-${props.collection}`, watch: [apiUrl] })
 
 const records = computed(() => {
   const raw = (response.value as any)?.data ?? (response.value as any) ?? []
@@ -179,7 +185,9 @@ const totalRecords = computed(() => {
   return (response.value as any)?.meta?.total ?? records.value.length
 })
 
-const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / effectivePageSize.value)))
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(totalRecords.value / effectivePageSize.value)),
+)
 
 const isLoading = computed(() => schemaStatus.value === 'pending' || dataStatus.value === 'pending')
 
@@ -190,14 +198,14 @@ function onFiltersUpdate(newFilters: Record<string, FilterValue>) {
 
 // ─── Visible columns ───────────────────────────────────────
 const columns = computed(() => {
-  return fields.value.filter(f => !['id', 'created_at', 'updated_at'].includes(f.name))
+  return fields.value.filter((f) => !['id', 'created_at', 'updated_at'].includes(f.name))
 })
 
 // ─── Filterable fields (with options for select) ────────────
 const filterFields = computed(() => {
   return fields.value
-    .filter(f => !['id', 'created_at', 'updated_at'].includes(f.name))
-    .map(f => ({
+    .filter((f) => !['id', 'created_at', 'updated_at'].includes(f.name))
+    .map((f) => ({
       name: f.name,
       type: f.type,
       label: f.label,
@@ -242,10 +250,14 @@ function formatValue(value: unknown, type: string): string {
     case 'date':
       try {
         return new Date(value as string).toLocaleDateString('nl-NL', {
-          year: 'numeric', month: 'short', day: 'numeric',
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
           ...(type === 'datetime' ? { hour: '2-digit', minute: '2-digit' } : {}),
         })
-      } catch { return String(value) }
+      } catch {
+        return String(value)
+      }
     case 'integer':
     case 'float':
     case 'number':
@@ -282,11 +294,11 @@ function nextPage() {
           class="dt__view-delete"
           title="Verwijder weergave"
           @click="deleteView(currentViewName)"
-        >✕</button>
+        >
+          ✕
+        </button>
       </div>
-      <button class="dt__view-save" @click="showSaveDialog = true">
-        Opslaan als weergave
-      </button>
+      <button class="dt__view-save" @click="showSaveDialog = true">Opslaan als weergave</button>
     </div>
 
     <!-- Save dialog -->
@@ -297,7 +309,9 @@ function nextPage() {
         placeholder="Naam van de weergave..."
         @keyup.enter="saveView"
       />
-      <button class="dt__save-btn" :disabled="!newViewName.trim()" @click="saveView">Opslaan</button>
+      <button class="dt__save-btn" :disabled="!newViewName.trim()" @click="saveView">
+        Opslaan
+      </button>
       <button class="dt__save-cancel" @click="showSaveDialog = false">Annuleren</button>
     </div>
 
@@ -306,7 +320,10 @@ function nextPage() {
       :fields="filterFields"
       :model-value="filters"
       @update:model-value="onFiltersUpdate"
-      @clear="filters = {}; currentPage = 1"
+      @clear="
+        filters = {}
+        currentPage = 1
+      "
     />
 
     <!-- Loading state -->
@@ -317,7 +334,10 @@ function nextPage() {
 
     <!-- Error state -->
     <div v-else-if="fetchError" class="dt__error">
-      <p>⚠️ Fout bij laden: {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}</p>
+      <p>
+        ⚠️ Fout bij laden:
+        {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
+      </p>
       <button class="dt__error-retry" @click="refresh()">Opnieuw proberen</button>
     </div>
 
@@ -326,12 +346,7 @@ function nextPage() {
       <table class="dt__table">
         <thead>
           <tr>
-            <th
-              v-for="col in columns"
-              :key="col.name"
-              class="dt__th"
-              @click="toggleSort(col.name)"
-            >
+            <th v-for="col in columns" :key="col.name" class="dt__th" @click="toggleSort(col.name)">
               <span class="dt__th-label">{{ col.label ?? col.name }}</span>
               <span class="dt__th-sort">{{ sortIcon(col.name) }}</span>
             </th>
@@ -356,7 +371,10 @@ function nextPage() {
                 {{ (record as any)[col.name] ?? '—' }}
               </span>
               <!-- Boolean -->
-              <span v-else-if="col.type === 'boolean'" :class="(record as any)[col.name] ? 'dt__bool--true' : 'dt__bool--false'">
+              <span
+                v-else-if="col.type === 'boolean'"
+                :class="(record as any)[col.name] ? 'dt__bool--true' : 'dt__bool--false'"
+              >
                 {{ (record as any)[col.name] ? '✓' : '✗' }}
               </span>
               <!-- Relation -->
@@ -373,7 +391,9 @@ function nextPage() {
                 class="dt__delete-btn"
                 title="Verwijderen"
                 @click="confirmDelete(record, $event)"
-              >🗑️</button>
+              >
+                🗑️
+              </button>
             </td>
           </tr>
         </tbody>
@@ -389,10 +409,14 @@ function nextPage() {
     <Teleport to="body">
       <div v-if="deleteTarget" class="dt__overlay" @click.self="cancelDelete">
         <div class="dt__dialog">
-          <p>Weet je zeker dat je <strong>{{ deleteTarget.label }}</strong> wilt verwijderen?</p>
+          <p>
+            Weet je zeker dat je <strong>{{ deleteTarget.label }}</strong> wilt verwijderen?
+          </p>
           <p v-if="deleteError" class="dt__dialog-error">{{ deleteError }}</p>
           <div class="dt__dialog-actions">
-            <button class="dt__dialog-cancel" @click="cancelDelete" :disabled="deleting">Annuleren</button>
+            <button class="dt__dialog-cancel" @click="cancelDelete" :disabled="deleting">
+              Annuleren
+            </button>
             <button class="dt__dialog-confirm" @click="executeDelete" :disabled="deleting">
               {{ deleting ? 'Bezig...' : 'Verwijderen' }}
             </button>
@@ -406,9 +430,7 @@ function nextPage() {
 
     <!-- Pagination -->
     <div v-if="!isLoading && totalRecords > 0" class="dt__pagination">
-      <button class="dt__page-btn" :disabled="currentPage <= 1" @click="prevPage">
-        ← Vorige
-      </button>
+      <button class="dt__page-btn" :disabled="currentPage <= 1" @click="prevPage">← Vorige</button>
       <span class="dt__page-info">
         Pagina {{ currentPage }} van {{ totalPages }}
         <span class="dt__page-total">({{ totalRecords }} records)</span>
@@ -475,7 +497,9 @@ function nextPage() {
   cursor: pointer;
   height: 30px;
   white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
+  transition:
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .dt__view-save:hover {
@@ -642,7 +666,9 @@ function nextPage() {
 }
 
 @keyframes dt-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .dt__error {
@@ -698,7 +724,9 @@ function nextPage() {
   color: var(--text-default, #fff);
   font-size: 0.8125rem;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
 }
 
 .dt__page-btn:hover:not(:disabled) {
@@ -826,8 +854,13 @@ function nextPage() {
 }
 
 @keyframes dt-toast {
-  0%, 80% { opacity: 1; }
-  100% { opacity: 0; }
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* ─── Mobile < 768px ─── */

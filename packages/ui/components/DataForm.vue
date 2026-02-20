@@ -30,51 +30,63 @@ const loading = ref(false)
 const relationOptions = ref<Record<string, Array<{ id: string; label: string }>>>({})
 
 // Initialize form data from schema defaults
-watch(fields, (f) => {
-  if (!f?.length || isEditMode.value) return
-  const data: Record<string, unknown> = {}
-  for (const field of f) {
-    if (field.type === 'boolean') data[field.name] = false
-    else data[field.name] = field.default ?? ''
-  }
-  formData.value = data
-}, { immediate: true })
+watch(
+  fields,
+  (f) => {
+    if (!f?.length || isEditMode.value) return
+    const data: Record<string, unknown> = {}
+    for (const field of f) {
+      if (field.type === 'boolean') data[field.name] = false
+      else data[field.name] = field.default ?? ''
+    }
+    formData.value = data
+  },
+  { immediate: true },
+)
 
 // Load record data in edit mode
-watch(() => props.recordId, async (id) => {
-  if (!id) return
-  loading.value = true
-  try {
-    const raw = await getRecord(props.collection, id)
-    const record = ((raw as any)?.data ?? raw) as Record<string, unknown>
-    formData.value = { ...record }
-  } catch (err: any) {
-    serverError.value = err?.data?.error?.message ?? err?.message ?? 'Record laden mislukt'
-  } finally {
-    loading.value = false
-  }
-}, { immediate: true })
+watch(
+  () => props.recordId,
+  async (id) => {
+    if (!id) return
+    loading.value = true
+    try {
+      const raw = await getRecord(props.collection, id)
+      const record = ((raw as any)?.data ?? raw) as Record<string, unknown>
+      formData.value = { ...record }
+    } catch (err: any) {
+      serverError.value = err?.data?.error?.message ?? err?.message ?? 'Record laden mislukt'
+    } finally {
+      loading.value = false
+    }
+  },
+  { immediate: true },
+)
 
 // Load relation options for relation fields
-watch(fields, async (f) => {
-  if (!f?.length) return
-  for (const field of f) {
-    if (field.type === 'relation' && field.relation?.target) {
-      try {
-        const result = await listRecords(field.relation.target, { limit: 100 })
-        const records = (result as any)?.data ?? result ?? []
-        relationOptions.value[field.name] = Array.isArray(records)
-          ? records.map((r: any) => ({
-              id: String(r.id),
-              label: r.name ?? r.title ?? r.label ?? String(r.id),
-            }))
-          : []
-      } catch {
-        relationOptions.value[field.name] = []
+watch(
+  fields,
+  async (f) => {
+    if (!f?.length) return
+    for (const field of f) {
+      if (field.type === 'relation' && field.relation?.target) {
+        try {
+          const result = await listRecords(field.relation.target, { limit: 100 })
+          const records = (result as any)?.data ?? result ?? []
+          relationOptions.value[field.name] = Array.isArray(records)
+            ? records.map((r: any) => ({
+                id: String(r.id),
+                label: r.name ?? r.title ?? r.label ?? String(r.id),
+              }))
+            : []
+        } catch {
+          relationOptions.value[field.name] = []
+        }
       }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+)
 
 function validate(): boolean {
   const errs: Record<string, string> = {}
@@ -289,22 +301,22 @@ function fieldId(name: string) {
 
       <div class="data-form__actions">
         <button type="submit" class="data-form__btn data-form__btn--primary" :disabled="submitting">
-          {{ submitting ? 'Bezig...' : (isEditMode ? 'Opslaan' : 'Aanmaken') }}
+          {{ submitting ? 'Bezig...' : isEditMode ? 'Opslaan' : 'Aanmaken' }}
         </button>
-        <button type="button" class="data-form__btn data-form__btn--secondary" @click="handleCancel">
+        <button
+          type="button"
+          class="data-form__btn data-form__btn--secondary"
+          @click="handleCancel"
+        >
           Annuleren
         </button>
       </div>
     </form>
   </div>
 
-  <div v-else-if="schemaStatus === 'pending'" class="data-form__loading">
-    Schema laden...
-  </div>
+  <div v-else-if="schemaStatus === 'pending'" class="data-form__loading">Schema laden...</div>
 
-  <div v-else class="data-form__server-error" role="alert">
-    Schema kon niet geladen worden.
-  </div>
+  <div v-else class="data-form__server-error" role="alert">Schema kon niet geladen worden.</div>
 </template>
 
 <style scoped>

@@ -4,10 +4,13 @@ definePageMeta({ layout: 'data-engine' })
 const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
 
-const { data: collections, status, error: fetchError } = await useFetch<Array<{ name: string; count: number }>>(
-  `${baseUrl}/collections-list`,
-  { key: 'collections-list-page' },
-)
+const {
+  data: collections,
+  status,
+  error: fetchError,
+} = await useFetch<Array<{ name: string; count: number }>>(`${baseUrl}/collections-list`, {
+  key: 'collections-list-page',
+})
 
 const labels: Record<string, string> = {
   contacts: 'Contacten',
@@ -21,8 +24,12 @@ const labels: Record<string, string> = {
 
     <div v-if="status === 'pending'">Laden...</div>
 
-    <div v-else-if="fetchError" style="color: var(--feedback-error, #ef4444); padding: var(--space-m, 16px) 0;">
-      ⚠️ Fout bij laden: {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
+    <div
+      v-else-if="fetchError"
+      style="color: var(--feedback-error, #ef4444); padding: var(--space-m, 16px) 0"
+    >
+      ⚠️ Fout bij laden:
+      {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
     </div>
 
     <div v-else class="collections-grid">

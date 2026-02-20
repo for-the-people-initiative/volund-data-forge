@@ -39,8 +39,15 @@ function removeOption(idx: number) {
 </template>
 
 <style scoped>
-.sb-options { display: flex; flex-direction: column; gap: var(--space-2xs, 4px); }
-.sb-options__label { font-size: 0.8rem; color: var(--text-secondary, #9ea5c2); }
+.sb-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs, 4px);
+}
+.sb-options__label {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #9ea5c2);
+}
 
 .sb-options__item {
   display: flex;
@@ -53,12 +60,20 @@ function removeOption(idx: number) {
   font-size: 0.85rem;
 }
 .sb-options__item button {
-  background: none; border: none; color: var(--text-secondary, #9ea5c2);
-  cursor: pointer; font-size: 0.8rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary, #9ea5c2);
+  cursor: pointer;
+  font-size: 0.8rem;
 }
-.sb-options__item button:hover { color: var(--text-error, #ff6b6b); }
+.sb-options__item button:hover {
+  color: var(--text-error, #ff6b6b);
+}
 
-.sb-options__add { display: flex; gap: var(--space-2xs, 4px); }
+.sb-options__add {
+  display: flex;
+  gap: var(--space-2xs, 4px);
+}
 .sb-options__input {
   flex: 1;
   padding: var(--space-2xs, 4px) var(--space-s, 10px);
@@ -68,7 +83,10 @@ function removeOption(idx: number) {
   color: var(--text-default, #fff);
   font-size: 0.85rem;
 }
-.sb-options__input:focus { outline: none; border-color: var(--border-focus, #4a6cf7); }
+.sb-options__input:focus {
+  outline: none;
+  border-color: var(--border-focus, #4a6cf7);
+}
 
 .sb-btn {
   background: var(--surface-interactive, #232a4d);

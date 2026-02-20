@@ -13,17 +13,31 @@ const emit = defineEmits<{
 const listRef = ref<HTMLElement | null>(null)
 const localFields = ref([...props.fields])
 
-watch(() => props.fields, (f) => { localFields.value = [...f] }, { deep: true })
+watch(
+  () => props.fields,
+  (f) => {
+    localFields.value = [...f]
+  },
+  { deep: true },
+)
 
 useDraggable(listRef, localFields, {
   handle: '.sb-field__handle',
   animation: 150,
-  onEnd: () => { emit('reorder', [...localFields.value]) },
+  onEnd: () => {
+    emit('reorder', [...localFields.value])
+  },
 })
 
 const typeLabels: Record<string, string> = {
-  text: 'tekst', integer: 'geheel', float: 'komma', boolean: 'boolean',
-  datetime: 'datum', select: 'selectie', email: 'email', relation: 'koppeling',
+  text: 'tekst',
+  integer: 'geheel',
+  float: 'komma',
+  boolean: 'boolean',
+  datetime: 'datum',
+  select: 'selectie',
+  email: 'email',
+  relation: 'koppeling',
   lookup: 'ophalen',
 }
 </script>
@@ -46,7 +60,9 @@ const typeLabels: Record<string, string> = {
         </div>
       </div>
     </div>
-    <p v-if="!fields.length" class="sb-fields__empty">Nog geen velden. Klik op "+ Veld toevoegen".</p>
+    <p v-if="!fields.length" class="sb-fields__empty">
+      Nog geen velden. Klik op "+ Veld toevoegen".
+    </p>
   </div>
 </template>
 
@@ -80,7 +96,9 @@ const typeLabels: Record<string, string> = {
   cursor: pointer;
   font-size: 0.8rem;
 }
-.sb-btn:hover { background: var(--surface-hover, #2d3566); }
+.sb-btn:hover {
+  background: var(--surface-hover, #2d3566);
+}
 
 .sb-fields__list {
   display: flex;
@@ -138,7 +156,9 @@ const typeLabels: Record<string, string> = {
   cursor: pointer;
   font-size: 0.85rem;
 }
-.sb-field__actions button:hover { color: var(--text-default, #fff); }
+.sb-field__actions button:hover {
+  color: var(--text-default, #fff);
+}
 
 .sb-fields__empty {
   color: var(--text-secondary, #9ea5c2);

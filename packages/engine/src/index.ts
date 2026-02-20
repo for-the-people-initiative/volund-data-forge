@@ -10,7 +10,7 @@ export type {
   SortDirection,
   PopulateDefinition,
   TransactionClient,
-} from './types.js';
+} from './types.js'
 
 // Engine-specific types
 export type {
@@ -19,14 +19,14 @@ export type {
   HookContext,
   EngineOptions,
   PopulateOption,
-} from './types.js';
+} from './types.js'
 
 // CE-002: Query Compiler
-export { validateQuery, QueryCompilationError } from './query-compiler.js';
+export { validateQuery, QueryCompilationError } from './query-compiler.js'
 
 // CE-003 through CE-008: DataEngine
-export { DataEngine, EngineError } from './engine.js';
+export { DataEngine, EngineError } from './engine.js'
 
 // FW-CONFIG: Bootstrap
-export { createDataEngine } from './bootstrap.js';
-export type { DataEngineConfig, DataEngineInstance } from './bootstrap.js';
+export { createDataEngine } from './bootstrap.js'
+export type { DataEngineConfig, DataEngineInstance } from './bootstrap.js'

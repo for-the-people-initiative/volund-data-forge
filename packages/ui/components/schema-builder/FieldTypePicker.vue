@@ -40,7 +40,7 @@ const types = [
 .sb-picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -78,15 +78,22 @@ const types = [
   border-radius: var(--radius-default, 5px);
   cursor: pointer;
   color: var(--text-default, #fff);
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 .sb-picker__item:hover {
   border-color: var(--border-focus, #4a6cf7);
   background: var(--surface-interactive, #232a4d);
 }
 
-.sb-picker__icon { font-size: 1.5rem; }
-.sb-picker__label { font-size: 0.75rem; color: var(--text-secondary, #9ea5c2); }
+.sb-picker__icon {
+  font-size: 1.5rem;
+}
+.sb-picker__label {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #9ea5c2);
+}
 
 /* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {

@@ -15,13 +15,23 @@ const labels: Record<string, string> = {
     <div class="collection-header">
       <h1 class="collection-header__title">{{ labels[collection] ?? collection }}</h1>
       <div class="collection-header__actions">
-        <NuxtLink :to="`/builder?collection=${collection}`" class="collection-header__btn collection-header__btn--edit">
+        <NuxtLink
+          :to="`/builder?collection=${collection}`"
+          class="collection-header__btn collection-header__btn--edit"
+        >
           ✎ Bewerken
         </NuxtLink>
-        <NuxtLink :to="`/collections/${collection}/new`" class="collection-header__btn">+ Nieuw</NuxtLink>
+        <NuxtLink :to="`/collections/${collection}/new`" class="collection-header__btn"
+          >+ Nieuw</NuxtLink
+        >
       </div>
     </div>
-    <DataTable :collection="collection" :page-size="20" />
+    <NuxtErrorBoundary>
+      <DataTable :collection="collection" :page-size="20" />
+      <template #error="{ error, clearError }">
+        <ErrorFallback label="De tabel" @retry="clearError" />
+      </template>
+    </NuxtErrorBoundary>
   </div>
 </template>
 

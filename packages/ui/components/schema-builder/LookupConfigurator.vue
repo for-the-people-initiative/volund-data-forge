@@ -21,21 +21,22 @@ const selectedField = ref(props.lookup?.field ?? '')
 
 // Only show relation-type fields from the current collection
 const relationFields = computed(() =>
-  props.collectionFields.filter(f => f.type === 'relation' && f.relation?.target)
+  props.collectionFields.filter((f) => f.type === 'relation' && f.relation?.target),
 )
 
 // Once a relation is chosen, find the target collection's fields
 const targetFields = computed(() => {
   if (!selectedRelation.value) return []
-  const relField = relationFields.value.find(f => f.name === selectedRelation.value)
+  const relField = relationFields.value.find((f) => f.name === selectedRelation.value)
   if (!relField?.relation?.target) return []
-  const targetSchema = props.allSchemas.find(s => s.name === relField.relation!.target)
+  const targetSchema = props.allSchemas.find((s) => s.name === relField.relation!.target)
   if (!targetSchema) return []
   // Exclude system fields and relation/lookup fields
-  return targetSchema.fields.filter(f =>
-    !['id', 'created_at', 'updated_at'].includes(f.name) &&
-    f.type !== 'relation' &&
-    f.type !== 'lookup'
+  return targetSchema.fields.filter(
+    (f) =>
+      !['id', 'created_at', 'updated_at'].includes(f.name) &&
+      f.type !== 'relation' &&
+      f.type !== 'lookup',
   )
 })
 
@@ -51,12 +52,16 @@ watch(selectedRelation, () => {
 })
 
 // Init from props
-watch(() => props.lookup, (l) => {
-  if (l) {
-    selectedRelation.value = l.relation
-    selectedField.value = l.field
-  }
-}, { immediate: true })
+watch(
+  () => props.lookup,
+  (l) => {
+    if (l) {
+      selectedRelation.value = l.relation
+      selectedField.value = l.field
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

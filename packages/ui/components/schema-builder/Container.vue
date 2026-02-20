@@ -27,7 +27,11 @@ async function handleDelete() {
   <div class="sb-container">
     <!-- Feedback banner -->
     <Transition name="sb-feedback">
-      <div v-if="sb.feedback.value" :class="['sb-feedback', `sb-feedback--${sb.feedback.value.type}`]" @click="sb.clearFeedback">
+      <div
+        v-if="sb.feedback.value"
+        :class="['sb-feedback', `sb-feedback--${sb.feedback.value.type}`]"
+        @click="sb.clearFeedback"
+      >
         <span>{{ sb.feedback.value.type === 'success' ? '✓' : '✕' }}</span>
         <span>{{ sb.feedback.value.message }}</span>
         <button class="sb-feedback__close" @click.stop="sb.clearFeedback">✕</button>
@@ -64,11 +68,7 @@ async function handleDelete() {
 
         <!-- Action buttons -->
         <div class="sb-actions">
-          <button
-            class="sb-actions__save"
-            :disabled="sb.isLoading.value"
-            @click="handleSave"
-          >
+          <button class="sb-actions__save" :disabled="sb.isLoading.value" @click="handleSave">
             {{ sb.isEditMode.value ? '💾 Opslaan' : '💾 Collectie aanmaken' }}
           </button>
 
@@ -88,7 +88,10 @@ async function handleDelete() {
           {{ sb.showPreview.value ? '🔽 Verberg preview' : '🔼 Toon schema preview' }}
         </button>
 
-        <SchemaBuilderSchemaPreview v-if="sb.showPreview.value" :schema="sb.activeCollection.value" />
+        <SchemaBuilderSchemaPreview
+          v-if="sb.showPreview.value"
+          :schema="sb.activeCollection.value"
+        />
       </template>
 
       <div v-else class="sb-empty">
@@ -196,7 +199,9 @@ async function handleDelete() {
 
 .sb-feedback-enter-active,
 .sb-feedback-leave-active {
-  transition: opacity 0.3s, transform 0.3s;
+  transition:
+    opacity 0.3s,
+    transform 0.3s;
 }
 .sb-feedback-enter-from,
 .sb-feedback-leave-to {
@@ -221,8 +226,13 @@ async function handleDelete() {
   font-weight: 500;
   transition: background 0.15s;
 }
-.sb-actions__save:hover { background: var(--intent-action-hover, #ea580c); }
-.sb-actions__save:disabled { opacity: 0.5; cursor: not-allowed; }
+.sb-actions__save:hover {
+  background: var(--intent-action-hover, #ea580c);
+}
+.sb-actions__save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .sb-actions__delete {
   background: none;
@@ -234,8 +244,13 @@ async function handleDelete() {
   font-size: 0.875rem;
   transition: background 0.15s;
 }
-.sb-actions__delete:hover { background: #2e0a0a; }
-.sb-actions__delete:disabled { opacity: 0.5; cursor: not-allowed; }
+.sb-actions__delete:hover {
+  background: #2e0a0a;
+}
+.sb-actions__delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .sb-actions__dirty {
   color: var(--intent-action-default, #f97316);

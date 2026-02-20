@@ -116,7 +116,11 @@ function updateDateRange(field: string, from: string, to: string) {
 }
 
 const filterableFields = computed(() =>
-  props.fields.filter(f => !['id', 'created_at', 'updated_at', 'json', 'relation'].includes(f.type) && !['id', 'created_at', 'updated_at'].includes(f.name))
+  props.fields.filter(
+    (f) =>
+      !['id', 'created_at', 'updated_at', 'json', 'relation'].includes(f.type) &&
+      !['id', 'created_at', 'updated_at'].includes(f.name),
+  ),
 )
 </script>
 
@@ -128,9 +132,7 @@ const filterableFields = computed(() =>
         <span v-if="activeCount" class="fb__count">{{ activeCount }}</span>
         <span class="fb__chevron" :class="{ 'fb__chevron--open': expanded }">▾</span>
       </button>
-      <button v-if="activeCount" class="fb__clear" @click="clearAll">
-        Wis filters
-      </button>
+      <button v-if="activeCount" class="fb__clear" @click="clearAll">Wis filters</button>
     </div>
 
     <div v-if="expanded" class="fb__grid">
@@ -142,7 +144,14 @@ const filterableFields = computed(() =>
           v-if="field.type === 'select' && field.options?.length"
           class="fb__input fb__select"
           :value="getSelectValue(field.name)"
-          @change="updateFilter(field.name, ($event.target as HTMLSelectElement).value ? { operator: 'eq', value: ($event.target as HTMLSelectElement).value } : null)"
+          @change="
+            updateFilter(
+              field.name,
+              ($event.target as HTMLSelectElement).value
+                ? { operator: 'eq', value: ($event.target as HTMLSelectElement).value }
+                : null,
+            )
+          "
         >
           <option value="">Alle</option>
           <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
@@ -153,7 +162,14 @@ const filterableFields = computed(() =>
           v-else-if="field.type === 'boolean'"
           class="fb__input fb__select"
           :value="getBoolValue(field.name)"
-          @change="updateFilter(field.name, ($event.target as HTMLSelectElement).value !== '' ? { operator: 'eq', value: ($event.target as HTMLSelectElement).value === 'true' } : null)"
+          @change="
+            updateFilter(
+              field.name,
+              ($event.target as HTMLSelectElement).value !== ''
+                ? { operator: 'eq', value: ($event.target as HTMLSelectElement).value === 'true' }
+                : null,
+            )
+          "
         >
           <option value="">Alle</option>
           <option value="true">Waar</option>
@@ -167,7 +183,13 @@ const filterableFields = computed(() =>
             class="fb__input fb__date"
             :value="getDateFrom(field.name)"
             placeholder="Van"
-            @input="updateDateRange(field.name, ($event.target as HTMLInputElement).value, getDateTo(field.name))"
+            @input="
+              updateDateRange(
+                field.name,
+                ($event.target as HTMLInputElement).value,
+                getDateTo(field.name),
+              )
+            "
           />
           <span class="fb__date-sep">–</span>
           <input
@@ -175,7 +197,13 @@ const filterableFields = computed(() =>
             class="fb__input fb__date"
             :value="getDateTo(field.name)"
             placeholder="Tot"
-            @input="updateDateRange(field.name, getDateFrom(field.name), ($event.target as HTMLInputElement).value)"
+            @input="
+              updateDateRange(
+                field.name,
+                getDateFrom(field.name),
+                ($event.target as HTMLInputElement).value,
+              )
+            "
           />
         </div>
 
@@ -265,7 +293,9 @@ const filterableFields = computed(() =>
   font-size: 0.75rem;
   padding: var(--space-3xs, 2px) var(--space-xs, 6px);
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .fb__clear:hover {

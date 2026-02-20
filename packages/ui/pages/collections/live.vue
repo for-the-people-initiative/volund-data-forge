@@ -1,7 +1,10 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'data-engine' })
 
-const { data, error, status } = await useFetch('/api/collections/contacts')
+const { data, error, status } = await useFetch<{
+  data: Array<Record<string, any>>
+  meta?: { total: number }
+}>('/api/collections/contacts')
 </script>
 
 <template>
@@ -45,14 +48,52 @@ const { data, error, status } = await useFetch('/api/collections/contacts')
 </template>
 
 <style scoped>
-.collections-live { max-width: 900px; margin: 0 auto; padding: 2rem; }
-.data-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
-.data-table th, .data-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
-.data-table th { font-weight: 600; background: #f7fafc; }
-.status-badge { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 500; }
-.status-badge--active { background: #c6f6d5; color: #22543d; }
-.status-badge--inactive { background: #fed7d7; color: #742a2a; }
-.status-badge--pending { background: #fefcbf; color: #744210; }
-.error { color: red; padding: 1rem; border: 1px solid red; border-radius: 4px; }
-.meta { margin-top: 1rem; opacity: 0.6; }
+.collections-live {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1.5rem;
+}
+.data-table th,
+.data-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+.data-table th {
+  font-weight: 600;
+  background: #f7fafc;
+}
+.status-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.status-badge--active {
+  background: #c6f6d5;
+  color: #22543d;
+}
+.status-badge--inactive {
+  background: #fed7d7;
+  color: #742a2a;
+}
+.status-badge--pending {
+  background: #fefcbf;
+  color: #744210;
+}
+.error {
+  color: red;
+  padding: 1rem;
+  border: 1px solid red;
+  border-radius: 4px;
+}
+.meta {
+  margin-top: 1rem;
+  opacity: 0.6;
+}
 </style>

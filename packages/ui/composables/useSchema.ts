@@ -7,14 +7,16 @@ export function useSchema(collectionName: MaybeRef<string>) {
   const baseUrl = config.public.dataEngine.apiBaseUrl
   const name = toValue(collectionName)
 
-  const { data: schema, status, error, refresh } = useFetch(
-    `${baseUrl}/schema/${name}`,
-    {
-      key: `schema-${name}`,
-      // Cache schema for the session
-      getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] || nuxtApp.static.data[key],
-    },
-  )
+  const {
+    data: schema,
+    status,
+    error,
+    refresh,
+  } = useFetch(`${baseUrl}/schema/${name}`, {
+    key: `schema-${name}`,
+    // Cache schema for the session
+    getCachedData: (key, nuxtApp) => nuxtApp.payload.data[key] || nuxtApp.static.data[key],
+  })
 
   const fields = computed(() => {
     if (!schema.value) return []
@@ -24,6 +26,14 @@ export function useSchema(collectionName: MaybeRef<string>) {
       type: string
       label?: string
       required?: boolean
+      default?: unknown
+      options?: string[]
+      unique?: boolean
+      relation?: {
+        target: string
+        type: string
+        foreignKey?: string
+      }
     }>
   })
 

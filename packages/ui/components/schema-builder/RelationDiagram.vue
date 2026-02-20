@@ -7,7 +7,7 @@ const props = defineProps<{
 
 const sourceLabel = computed(() => props.sourceCollection || '…')
 const targetLabel = computed(() => props.targetCollection || '…')
-const linkLabel = computed(() => props.maxOne ? 'één' : 'meerdere')
+const linkLabel = computed(() => (props.maxOne ? 'één' : 'meerdere'))
 const reverseLinkLabel = computed(() => 'meerdere')
 </script>
 

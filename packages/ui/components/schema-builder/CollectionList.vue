@@ -32,7 +32,9 @@ const emit = defineEmits<{
           class="sb-collections__delete"
           title="Verwijderen"
           @click.stop="emit('delete', col.name)"
-        >✕</button>
+        >
+          ✕
+        </button>
       </li>
     </ul>
     <p v-if="!collections.length" class="sb-collections__empty">Nog geen collecties</p>
@@ -71,9 +73,13 @@ const emit = defineEmits<{
   cursor: pointer;
   font-size: 0.8rem;
 }
-.sb-btn:hover { background: var(--surface-hover, #2d3566); }
+.sb-btn:hover {
+  background: var(--surface-hover, #2d3566);
+}
 
-.sb-btn--small { font-size: 0.75rem; }
+.sb-btn--small {
+  font-size: 0.75rem;
+}
 
 .sb-collections__list {
   list-style: none;
@@ -94,7 +100,9 @@ const emit = defineEmits<{
   color: var(--text-secondary, #9ea5c2);
   font-size: 0.85rem;
 }
-.sb-collections__item:hover { background: var(--surface-muted, #060813); }
+.sb-collections__item:hover {
+  background: var(--surface-muted, #060813);
+}
 .sb-collections__item--active {
   background: var(--surface-muted, #060813);
   color: var(--text-default, #fff);
@@ -109,8 +117,12 @@ const emit = defineEmits<{
   opacity: 0;
   transition: opacity 0.15s;
 }
-.sb-collections__item:hover .sb-collections__delete { opacity: 1; }
-.sb-collections__delete:hover { color: var(--text-error, #ff6b6b); }
+.sb-collections__item:hover .sb-collections__delete {
+  opacity: 1;
+}
+.sb-collections__delete:hover {
+  color: var(--text-error, #ff6b6b);
+}
 
 .sb-collections__empty {
   color: var(--text-secondary, #9ea5c2);

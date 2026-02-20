@@ -13,13 +13,14 @@ const editing = ref(false)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 
-const { data: record, status: recordStatus, refresh: refreshRecord } = await useAsyncData(
-  `record-${collection.value}-${id.value}`,
-  async () => {
-    const raw = await getRecord(collection.value, id.value)
-    return ((raw as any)?.data ?? raw) as Record<string, unknown> ?? null
-  },
-)
+const {
+  data: record,
+  status: recordStatus,
+  refresh: refreshRecord,
+} = await useAsyncData(`record-${collection.value}-${id.value}`, async () => {
+  const raw = await getRecord(collection.value, id.value)
+  return (((raw as any)?.data ?? raw) as Record<string, unknown>) ?? null
+})
 
 const loading = computed(() => recordStatus.value === 'pending')
 
@@ -51,24 +52,32 @@ function fieldLabel(name: string) {
 
 <template>
   <div>
-    <NuxtLink :to="`/collections/${collection}`" class="back-link">← Terug naar {{ collection }}</NuxtLink>
+    <NuxtLink :to="`/collections/${collection}`" class="back-link"
+      >← Terug naar {{ collection }}</NuxtLink
+    >
 
     <div class="detail-header">
       <h1>{{ collection }} / {{ id }}</h1>
       <button v-if="!editing" class="edit-btn" @click="editing = true">Bewerken</button>
-      <button v-if="!editing" class="delete-btn" @click="showDeleteConfirm = true">Verwijderen</button>
+      <button v-if="!editing" class="delete-btn" @click="showDeleteConfirm = true">
+        Verwijderen
+      </button>
     </div>
 
     <div v-if="loading" class="loading">Laden...</div>
 
     <!-- Edit mode -->
-    <DataForm
-      v-else-if="editing"
-      :collection="collection"
-      :record-id="id"
-      @success="onSuccess"
-      @cancel="editing = false"
-    />
+    <NuxtErrorBoundary v-else-if="editing">
+      <DataForm
+        :collection="collection"
+        :record-id="id"
+        @success="onSuccess"
+        @cancel="editing = false"
+      />
+      <template #error="{ error, clearError }">
+        <ErrorFallback label="Het formulier" @retry="clearError" />
+      </template>
+    </NuxtErrorBoundary>
 
     <!-- Detail view -->
     <div v-else-if="record" class="detail-view">
@@ -87,9 +96,17 @@ function fieldLabel(name: string) {
       <div v-if="showDeleteConfirm" class="delete-overlay" @click.self="showDeleteConfirm = false">
         <div class="delete-dialog">
           <p>Weet je zeker dat je dit record wilt verwijderen?</p>
-          <p v-if="deleteError" style="color: var(--feedback-error, #ef4444); font-size: 0.8125rem;">{{ deleteError }}</p>
+          <p v-if="deleteError" style="color: var(--feedback-error, #ef4444); font-size: 0.8125rem">
+            {{ deleteError }}
+          </p>
           <div class="delete-dialog-actions">
-            <button class="delete-dialog-cancel" @click="showDeleteConfirm = false" :disabled="deleting">Annuleren</button>
+            <button
+              class="delete-dialog-cancel"
+              @click="showDeleteConfirm = false"
+              :disabled="deleting"
+            >
+              Annuleren
+            </button>
             <button class="delete-dialog-confirm" @click="handleDelete" :disabled="deleting">
               {{ deleting ? 'Bezig...' : 'Verwijderen' }}
             </button>
@@ -193,7 +210,8 @@ function fieldLabel(name: string) {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.loading, .error {
+.loading,
+.error {
   color: var(--text-muted);
   padding: var(--space-m) 0;
 }

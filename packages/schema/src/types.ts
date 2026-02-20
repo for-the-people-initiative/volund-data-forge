@@ -1,114 +1,120 @@
 // SE-001: Canonical JSON Schema Format
 
 /** Relation cardinality types */
-export type RelationType = 'oneToOne' | 'manyToOne' | 'oneToMany' | 'manyToMany';
+export type RelationType = 'oneToOne' | 'manyToOne' | 'oneToMany' | 'manyToMany'
 
 /** Field-level validation rule */
 export interface FieldValidation {
-  rule: string;
-  value?: unknown;
-  message?: string;
+  rule: string
+  value?: unknown
+  message?: string
 }
 
 /** Field definition */
 export interface FieldDefinition {
-  name: string;
-  type: string;
-  required?: boolean;
-  unique?: boolean;
-  default?: unknown;
-  validations?: FieldValidation[];
+  name: string
+  type: string
+  required?: boolean
+  unique?: boolean
+  default?: unknown
+  validations?: FieldValidation[]
   /** For 'select' type */
-  options?: string[];
+  options?: string[]
   /** For 'relation' type */
-  relation?: RelationDefinition;
+  relation?: RelationDefinition
   /** For 'lookup' type — fetch a field value via an existing relation */
-  lookup?: { relation: string; field: string };
+  lookup?: { relation: string; field: string }
 }
 
 /** onDelete policy for relations */
-export type OnDeletePolicy = 'setNull' | 'cascade' | 'restrict';
+export type OnDeletePolicy = 'setNull' | 'cascade' | 'restrict'
 
 /** Relation definition */
 export interface RelationDefinition {
-  target: string;
-  type: RelationType;
-  foreignKey?: string;
-  junctionTable?: string;
-  onDelete?: OnDeletePolicy;
+  target: string
+  type: RelationType
+  foreignKey?: string
+  junctionTable?: string
+  onDelete?: OnDeletePolicy
 }
 
 /** Hook reference (by name, not implementation) */
 export interface HookReference {
-  event: 'beforeCreate' | 'afterCreate' | 'beforeUpdate' | 'afterUpdate' | 'beforeDelete' | 'afterDelete';
-  handler: string;
+  event:
+    | 'beforeCreate'
+    | 'afterCreate'
+    | 'beforeUpdate'
+    | 'afterUpdate'
+    | 'beforeDelete'
+    | 'afterDelete'
+  handler: string
 }
 
 /** UI namespace for frontend hints */
 export interface UINamespace {
-  icon?: string;
-  displayTemplate?: string;
-  hidden?: boolean;
-  group?: string;
-  sort?: number;
+  icon?: string
+  displayTemplate?: string
+  hidden?: boolean
+  group?: string
+  sort?: number
 }
 
 /** Collection metadata */
 export interface CollectionMetadata {
-  singleton?: boolean;
-  timestamps?: boolean;
-  softDelete?: boolean;
-  [key: string]: unknown;
+  singleton?: boolean
+  timestamps?: boolean
+  softDelete?: boolean
+  [key: string]: unknown
 }
 
 /** Complete collection schema */
 export interface CollectionSchema {
-  name: string;
-  fields: FieldDefinition[];
-  relations?: RelationDefinition[];
-  hooks?: HookReference[];
-  ui?: UINamespace;
-  metadata?: CollectionMetadata;
+  name: string
+  fields: FieldDefinition[]
+  relations?: RelationDefinition[]
+  hooks?: HookReference[]
+  ui?: UINamespace
+  metadata?: CollectionMetadata
 }
 
 /** Reserved system-managed fields */
-export const RESERVED_FIELDS = ['id', 'created_at', 'updated_at'] as const;
-export type ReservedField = typeof RESERVED_FIELDS[number];
+export const RESERVED_FIELDS = ['id', 'created_at', 'updated_at'] as const
+export type ReservedField = (typeof RESERVED_FIELDS)[number]
 
 /** Schema validation error */
 export interface SchemaError {
-  path: string;
-  message: string;
+  path: string
+  message: string
 }
 
 /** Validation result for data validation (SE-006) */
 export interface ValidationResult {
-  valid: boolean;
-  errors: SchemaError[];
-  data?: Record<string, unknown>;
+  valid: boolean
+  errors: SchemaError[]
+  data?: Record<string, unknown>
 }
 
 /** Schema diff operation types (SE-005) */
-export type DiffOperation = 'added' | 'removed' | 'changed';
+export type DiffOperation = 'added' | 'removed' | 'changed'
 
 export interface FieldDiff {
-  field: string;
-  operation: DiffOperation;
-  oldValue?: Partial<FieldDefinition>;
-  newValue?: Partial<FieldDefinition>;
-  destructive?: boolean;
-  renameHint?: string;
+  field: string
+  operation: DiffOperation
+  oldValue?: Partial<FieldDefinition>
+  newValue?: Partial<FieldDefinition>
+  destructive?: boolean
+  renameHint?: string
 }
 
 export interface SchemaDiff {
-  collection: string;
-  changes: FieldDiff[];
-  hasDestructiveChanges: boolean;
+  collection: string
+  changes: FieldDiff[]
+  hasDestructiveChanges: boolean
 }
 
 /** Storage interface for schema persistence (SE-004) */
 export interface SchemaStorage {
-  load(): Promise<CollectionSchema[]>;
-  save(schema: CollectionSchema): Promise<void>;
-  remove(name: string): Promise<void>;
+  load(): Promise<CollectionSchema[]>
+  save(schema: CollectionSchema): Promise<void>
+  remove(name: string): Promise<void>
 }

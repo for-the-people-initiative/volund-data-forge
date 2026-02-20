@@ -24,9 +24,14 @@ function onDeleted(_name: string) {
 </script>
 
 <template>
-  <SchemaBuilderContainer
-    :initial-collection="initialCollection"
-    @saved="onSaved"
-    @deleted="onDeleted"
-  />
+  <NuxtErrorBoundary>
+    <SchemaBuilderContainer
+      :initial-collection="initialCollection"
+      @saved="onSaved"
+      @deleted="onDeleted"
+    />
+    <template #error="{ error, clearError }">
+      <ErrorFallback label="De Schema Builder" @retry="clearError" />
+    </template>
+  </NuxtErrorBoundary>
 </template>

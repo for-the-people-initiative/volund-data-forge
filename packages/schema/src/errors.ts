@@ -9,9 +9,9 @@
  */
 
 export class DataEngineError extends Error {
-  public readonly code: string;
-  public readonly statusCode: number;
-  public readonly details?: Record<string, unknown>;
+  public readonly code: string
+  public readonly statusCode: number
+  public readonly details?: Record<string, unknown>
 
   constructor(
     message: string,
@@ -20,11 +20,11 @@ export class DataEngineError extends Error {
     details?: Record<string, unknown>,
     cause?: unknown,
   ) {
-    super(message, cause !== undefined ? { cause } : undefined);
-    this.name = 'DataEngineError';
-    this.code = code;
-    this.statusCode = statusCode;
-    this.details = details;
+    super(message, cause !== undefined ? { cause } : undefined)
+    this.name = 'DataEngineError'
+    this.code = code
+    this.statusCode = statusCode
+    this.details = details
   }
 
   toJSON(): Record<string, unknown> {
@@ -34,7 +34,7 @@ export class DataEngineError extends Error {
       message: this.message,
       statusCode: this.statusCode,
       ...(this.details ? { details: this.details } : {}),
-    };
+    }
   }
 }
 
@@ -42,8 +42,8 @@ export class DataEngineError extends Error {
 
 export class ValidationError extends DataEngineError {
   constructor(message: string, details?: Record<string, unknown>) {
-    super(message, 'VALIDATION_FAILED', 400, details);
-    this.name = 'ValidationError';
+    super(message, 'VALIDATION_FAILED', 400, details)
+    this.name = 'ValidationError'
   }
 }
 
@@ -51,8 +51,8 @@ export class ValidationError extends DataEngineError {
 
 export class NotFoundError extends DataEngineError {
   constructor(message: string, details?: Record<string, unknown>) {
-    super(message, 'NOT_FOUND', 404, details);
-    this.name = 'NotFoundError';
+    super(message, 'NOT_FOUND', 404, details)
+    this.name = 'NotFoundError'
   }
 }
 
@@ -60,38 +60,43 @@ export class NotFoundError extends DataEngineError {
 
 export class ConflictError extends DataEngineError {
   constructor(message: string, details?: Record<string, unknown>) {
-    super(message, 'CONFLICT', 409, details);
-    this.name = 'ConflictError';
+    super(message, 'CONFLICT', 409, details)
+    this.name = 'ConflictError'
   }
 }
 
 // ─── Adapter ─────────────────────────────────────────────────────────
 
 export class AdapterError extends DataEngineError {
-  constructor(message: string, code: string = 'ADAPTER_ERROR', cause?: unknown, details?: Record<string, unknown>) {
-    super(message, code, 500, details, cause);
-    this.name = 'AdapterError';
+  constructor(
+    message: string,
+    code: string = 'ADAPTER_ERROR',
+    cause?: unknown,
+    details?: Record<string, unknown>,
+  ) {
+    super(message, code, 500, details, cause)
+    this.name = 'AdapterError'
   }
 }
 
 export class ConnectionError extends AdapterError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'CONNECTION_ERROR', cause);
-    this.name = 'ConnectionError';
+    super(message, 'CONNECTION_ERROR', cause)
+    this.name = 'ConnectionError'
   }
 }
 
 export class SchemaOperationError extends AdapterError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'SCHEMA_ERROR', cause);
-    this.name = 'SchemaOperationError';
+    super(message, 'SCHEMA_ERROR', cause)
+    this.name = 'SchemaOperationError'
   }
 }
 
 export class QueryError extends AdapterError {
   constructor(message: string, cause?: unknown) {
-    super(message, 'QUERY_ERROR', cause);
-    this.name = 'QueryError';
+    super(message, 'QUERY_ERROR', cause)
+    this.name = 'QueryError'
   }
 }
 
@@ -99,8 +104,8 @@ export class QueryError extends AdapterError {
 
 export class ConfigError extends DataEngineError {
   constructor(message: string, details?: Record<string, unknown>) {
-    super(message, 'CONFIG_ERROR', 500, details);
-    this.name = 'ConfigError';
+    super(message, 'CONFIG_ERROR', 500, details)
+    this.name = 'ConfigError'
   }
 }
 
@@ -108,17 +113,22 @@ export class ConfigError extends DataEngineError {
 
 export class MigrationError extends DataEngineError {
   constructor(message: string, details?: Record<string, unknown>) {
-    super(message, 'MIGRATION_ERROR', 500, details);
-    this.name = 'MigrationError';
+    super(message, 'MIGRATION_ERROR', 500, details)
+    this.name = 'MigrationError'
   }
 }
 
 // ─── Engine ──────────────────────────────────────────────────────────
 
 export class EngineError extends DataEngineError {
-  constructor(message: string, code: string, statusCode: number = 400, details?: Record<string, unknown>) {
-    super(message, code, statusCode, details);
-    this.name = 'EngineError';
+  constructor(
+    message: string,
+    code: string,
+    statusCode: number = 400,
+    details?: Record<string, unknown>,
+  ) {
+    super(message, code, statusCode, details)
+    this.name = 'EngineError'
   }
 }
 
@@ -126,14 +136,14 @@ export class EngineError extends DataEngineError {
 
 export class QueryParseError extends ValidationError {
   constructor(message: string) {
-    super(message, { type: 'query_parse' });
-    this.name = 'QueryParseError';
+    super(message, { type: 'query_parse' })
+    this.name = 'QueryParseError'
   }
 }
 
 export class QueryCompilationError extends ValidationError {
   constructor(message: string) {
-    super(message, { type: 'query_compilation' });
-    this.name = 'QueryCompilationError';
+    super(message, { type: 'query_compilation' })
+    this.name = 'QueryCompilationError'
   }
 }

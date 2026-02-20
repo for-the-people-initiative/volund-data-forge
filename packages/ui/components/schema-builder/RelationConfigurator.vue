@@ -12,9 +12,11 @@ const emit = defineEmits<{ 'update:relation': [relation: RelationDefinition] }>(
 const target = ref(props.relation?.target ?? '')
 const maxOne = ref(props.relation?.type === 'manyToOne' || props.relation?.type === 'oneToOne')
 const deletePolicy = ref<'none' | 'cascade' | 'restrict'>(
-  props.relation?.onDelete === 'cascade' ? 'cascade'
-    : props.relation?.onDelete === 'restrict' ? 'restrict'
-    : 'none'
+  props.relation?.onDelete === 'cascade'
+    ? 'cascade'
+    : props.relation?.onDelete === 'restrict'
+      ? 'restrict'
+      : 'none',
 )
 const showAdvanced = ref(false)
 const selfRefWarning = ref(false)
@@ -31,24 +33,29 @@ watch(maxOne, () => emitRelation())
 watch(deletePolicy, () => emitRelation())
 
 // Initialize from props
-watch(() => props.relation, (r) => {
-  if (r) {
-    target.value = r.target
-    maxOne.value = r.type === 'manyToOne' || r.type === 'oneToOne'
-    deletePolicy.value = r.onDelete === 'cascade' ? 'cascade'
-      : r.onDelete === 'restrict' ? 'restrict'
-      : 'none'
-  }
-}, { immediate: true })
+watch(
+  () => props.relation,
+  (r) => {
+    if (r) {
+      target.value = r.target
+      maxOne.value = r.type === 'manyToOne' || r.type === 'oneToOne'
+      deletePolicy.value =
+        r.onDelete === 'cascade' ? 'cascade' : r.onDelete === 'restrict' ? 'restrict' : 'none'
+    }
+  },
+  { immediate: true },
+)
 
 function emitRelation() {
   if (!target.value) return
   const type: RelationType = maxOne.value ? 'manyToOne' : 'manyToMany'
   const foreignKey = `${props.sourceCollection}_${target.value}_fk`
   const onDelete: OnDeletePolicy | undefined =
-    deletePolicy.value === 'cascade' ? 'cascade'
-      : deletePolicy.value === 'restrict' ? 'restrict'
-      : undefined  // default (setNull) — omit from schema
+    deletePolicy.value === 'cascade'
+      ? 'cascade'
+      : deletePolicy.value === 'restrict'
+        ? 'restrict'
+        : undefined // default (setNull) — omit from schema
   const relation: RelationDefinition = {
     target: target.value,
     type,
@@ -71,7 +78,8 @@ function emitRelation() {
     </select>
 
     <p v-if="selfRefWarning" class="sb-relation__warning">
-      ⚠️ Je koppelt deze collectie aan zichzelf. Dit kan nuttig zijn (bijv. hiërarchie), maar controleer of dit de bedoeling is.
+      ⚠️ Je koppelt deze collectie aan zichzelf. Dit kan nuttig zijn (bijv. hiërarchie), maar
+      controleer of dit de bedoeling is.
     </p>
 
     <p v-if="!filteredTargets.length" class="sb-relation__hint">
@@ -85,10 +93,7 @@ function emitRelation() {
       :max-one="maxOne"
     />
 
-    <button
-      class="sb-relation__advanced-toggle"
-      @click="showAdvanced = !showAdvanced"
-    >
+    <button class="sb-relation__advanced-toggle" @click="showAdvanced = !showAdvanced">
       {{ showAdvanced ? '▾ Geavanceerd' : '▸ Geavanceerd' }}
     </button>
 

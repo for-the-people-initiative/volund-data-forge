@@ -7,9 +7,16 @@ const collection = computed(() => route.params.collection as string)
 
 <template>
   <div>
-    <NuxtLink :to="`/collections/${collection}`" class="back-link">← Terug naar {{ collection }}</NuxtLink>
+    <NuxtLink :to="`/collections/${collection}`" class="back-link"
+      >← Terug naar {{ collection }}</NuxtLink
+    >
     <h1>Nieuw {{ collection }} record</h1>
-    <DataForm :collection="collection" />
+    <NuxtErrorBoundary>
+      <DataForm :collection="collection" />
+      <template #error="{ error, clearError }">
+        <ErrorFallback label="Het formulier" @retry="clearError" />
+      </template>
+    </NuxtErrorBoundary>
   </div>
 </template>
 

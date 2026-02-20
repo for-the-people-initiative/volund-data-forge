@@ -4,7 +4,11 @@ definePageMeta({ layout: 'data-engine' })
 const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
 
-const { data: collections, status, error: fetchError } = await useFetch<Array<{ name: string; count: number; fieldCount: number }>>(
+const {
+  data: collections,
+  status,
+  error: fetchError,
+} = await useFetch<Array<{ name: string; count: number; fieldCount: number }>>(
   `${baseUrl}/collections-list`,
   { key: 'collections-list' },
 )
@@ -35,8 +39,13 @@ function icon(name: string) {
 
     <div v-if="status === 'pending'" class="dashboard__loading">Laden...</div>
 
-    <div v-else-if="fetchError" class="dashboard__loading" style="color: var(--feedback-error, #ef4444);">
-      ⚠️ Fout bij laden: {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
+    <div
+      v-else-if="fetchError"
+      class="dashboard__loading"
+      style="color: var(--feedback-error, #ef4444)"
+    >
+      ⚠️ Fout bij laden:
+      {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
     </div>
 
     <div v-else class="dashboard__grid">
@@ -101,7 +110,9 @@ function icon(name: string) {
   border-radius: var(--radius-rounded, 8px);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .dashboard__card:hover {

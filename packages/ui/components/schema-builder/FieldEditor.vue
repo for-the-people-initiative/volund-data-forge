@@ -34,13 +34,28 @@ function onLookupUpdate(lookup: { relation: string; field: string }) {
   local.lookup = lookup
 }
 
-watch(() => props.field, (f) => {
-  Object.assign(local, { ...f, options: f.options ? [...f.options] : [], relation: f.relation ? { ...f.relation } : undefined, lookup: f.lookup ? { ...f.lookup } : undefined })
-}, { deep: true })
+watch(
+  () => props.field,
+  (f) => {
+    Object.assign(local, {
+      ...f,
+      options: f.options ? [...f.options] : [],
+      relation: f.relation ? { ...f.relation } : undefined,
+      lookup: f.lookup ? { ...f.lookup } : undefined,
+    })
+  },
+  { deep: true },
+)
 
 const typeLabel: Record<string, string> = {
-  text: 'Tekst', integer: 'Geheel getal', float: 'Kommagetal', boolean: 'Boolean',
-  datetime: 'Datum/tijd', select: 'Selectie', email: 'Email', relation: 'Koppeling',
+  text: 'Tekst',
+  integer: 'Geheel getal',
+  float: 'Kommagetal',
+  boolean: 'Boolean',
+  datetime: 'Datum/tijd',
+  select: 'Selectie',
+  email: 'Email',
+  relation: 'Koppeling',
   lookup: 'Ophalen',
 }
 
@@ -53,7 +68,9 @@ function save() {
   <Teleport to="body">
     <div class="sb-drawer-overlay" @click.self="emit('cancel')">
       <div class="sb-drawer">
-        <h3>{{ isNew ? 'Nieuw veld' : 'Veld bewerken' }} — {{ typeLabel[local.type] || local.type }}</h3>
+        <h3>
+          {{ isNew ? 'Nieuw veld' : 'Veld bewerken' }} — {{ typeLabel[local.type] || local.type }}
+        </h3>
 
         <div v-if="errors.length" class="sb-drawer__errors">
           <p v-for="e in errors" :key="e">⚠️ {{ e }}</p>
@@ -122,7 +139,7 @@ function save() {
 .sb-drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: flex-end;
   z-index: 101;
@@ -209,12 +226,16 @@ function save() {
   cursor: pointer;
   font-size: 0.85rem;
 }
-.sb-btn:hover { background: var(--surface-hover, #2d3566); }
+.sb-btn:hover {
+  background: var(--surface-hover, #2d3566);
+}
 .sb-btn--primary {
   background: var(--surface-accent, #4a6cf7);
   border-color: var(--surface-accent, #4a6cf7);
 }
-.sb-btn--primary:hover { opacity: 0.9; }
+.sb-btn--primary:hover {
+  opacity: 0.9;
+}
 
 /* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {

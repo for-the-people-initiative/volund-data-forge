@@ -10,9 +10,9 @@
     <section class="about__section">
       <h2 class="about__heading">Wat is Volund?</h2>
       <p class="about__text">
-        Volund Data Forge is een <strong>schema-driven data platform</strong>.
-        Definieer je datamodel, en Volund bouwt de rest — tabellen, formulieren,
-        koppelingen en meer. Geen code nodig.
+        Volund Data Forge is een <strong>schema-driven data platform</strong>. Definieer je
+        datamodel, en Volund bouwt de rest — tabellen, formulieren, koppelingen en meer. Geen code
+        nodig.
       </p>
     </section>
 
@@ -81,8 +81,8 @@
       <h2 class="about__heading">Status</h2>
       <p class="about__text">
         <span class="about__badge">Alpha</span>
-        Volund Data Forge is in actieve ontwikkeling. Verwacht veranderingen,
-        verbeteringen en af en toe wat ruwe randjes.
+        Volund Data Forge is in actieve ontwikkeling. Verwacht veranderingen, verbeteringen en af en
+        toe wat ruwe randjes.
       </p>
     </section>
 
@@ -90,9 +90,9 @@
     <section class="about__section">
       <h2 class="about__heading">Achtergrond</h2>
       <p class="about__text">
-        Vernoemd naar <strong>Völundr</strong>, de legendarische Noorse meestersmid
-        uit de Edda. Zoals Völundr meesterlijke artefacten smeedde, zo smeedt
-        dit platform je data tools — krachtig, precies en op maat.
+        Vernoemd naar <strong>Völundr</strong>, de legendarische Noorse meestersmid uit de Edda.
+        Zoals Völundr meesterlijke artefacten smeedde, zo smeedt dit platform je data tools —
+        krachtig, precies en op maat.
       </p>
     </section>
   </div>

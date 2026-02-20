@@ -1,3 +1,5 @@
+[![CI](https://github.com/for-the-people-initiative/volund-data-forge/actions/workflows/ci.yml/badge.svg)](https://github.com/for-the-people-initiative/volund-data-forge/actions/workflows/ci.yml)
+
 # Volund Data Forge
 
 > Smeed je eigen data tools

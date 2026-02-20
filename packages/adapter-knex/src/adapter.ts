@@ -2,8 +2,8 @@
  * KnexAdapter — Full DatabaseAdapter implementation using Knex.
  */
 
-import knex, { type Knex } from 'knex';
-import type { FieldDefinition, Logger } from '@data-engine/schema';
+import knex, { type Knex } from 'knex'
+import type { FieldDefinition, Logger } from '@data-engine/schema'
 import type {
   DatabaseAdapter,
   DatabaseSchema,
@@ -13,44 +13,44 @@ import type {
   PopulateDefinition,
   QueryAST,
   TransactionClient,
-} from '@data-engine/adapter';
-import { ConnectionError, SchemaError, QueryError } from '@data-engine/adapter';
-import { applyFieldToTable, fieldTypeToColumnType } from './type-mapping.js';
-import { applyQueryAST } from './query-builder.js';
-import { introspectDatabase } from './introspection.js';
+} from '@data-engine/adapter'
+import { ConnectionError, SchemaError, QueryError } from '@data-engine/adapter'
+import { applyFieldToTable, fieldTypeToColumnType } from './type-mapping.js'
+import { applyQueryAST } from './query-builder.js'
+import { introspectDatabase } from './introspection.js'
 
 // ─── Config ──────────────────────────────────────────────────────────
 
 export interface KnexAdapterConfig {
-  client: 'pg' | 'sqlite3' | 'better-sqlite3' | 'mysql2';
-  host?: string;
-  port?: number;
-  database: string;
-  user?: string;
-  password?: string;
-  pool?: { min?: number; max?: number };
-  primaryKey?: PrimaryKeyStrategy;
-  logger?: Logger;
+  client: 'pg' | 'sqlite3' | 'better-sqlite3' | 'mysql2'
+  host?: string
+  port?: number
+  database: string
+  user?: string
+  password?: string
+  pool?: { min?: number; max?: number }
+  primaryKey?: PrimaryKeyStrategy
+  logger?: Logger
 }
 
 // ─── Adapter ─────────────────────────────────────────────────────────
 
 export class KnexAdapter implements DatabaseAdapter {
-  private knex: Knex | null = null;
-  private connected = false;
-  readonly primaryKeyStrategy: PrimaryKeyStrategy;
-  private logger?: Logger;
+  private knex: Knex | null = null
+  private connected = false
+  readonly primaryKeyStrategy: PrimaryKeyStrategy
+  private logger?: Logger
 
   constructor(private readonly config: KnexAdapterConfig) {
-    this.primaryKeyStrategy = config.primaryKey ?? 'uuid';
-    this.logger = config.logger;
+    this.primaryKeyStrategy = config.primaryKey ?? 'uuid'
+    this.logger = config.logger
   }
 
   // ── Lifecycle (DA-002) ───────────────────────────────────────────
 
   async connect(): Promise<void> {
     try {
-      const isSQLite = this.config.client === 'sqlite3' || this.config.client === 'better-sqlite3';
+      const isSQLite = this.config.client === 'sqlite3' || this.config.client === 'better-sqlite3'
       this.knex = knex({
         client: this.config.client,
         connection: isSQLite
@@ -67,72 +67,77 @@ export class KnexAdapter implements DatabaseAdapter {
           min: this.config.pool?.min ?? 2,
           max: this.config.pool?.max ?? 10,
         },
-      });
+      })
 
       // Ping to verify connection
-      await this.knex.raw('SELECT 1');
-      this.connected = true;
+      await this.knex.raw('SELECT 1')
+      this.connected = true
     } catch (err) {
-      this.connected = false;
-      throw new ConnectionError('Failed to connect to database', err);
+      this.connected = false
+      throw new ConnectionError('Failed to connect to database', err)
     }
   }
 
   async disconnect(): Promise<void> {
     if (this.knex) {
-      await this.knex.destroy();
-      this.knex = null;
-      this.connected = false;
+      await this.knex.destroy()
+      this.knex = null
+      this.connected = false
     }
   }
 
   isConnected(): boolean {
-    return this.connected;
+    return this.connected
   }
 
   // ── DDL Operations (DA-003) ──────────────────────────────────────
 
   async createCollection(name: string, fields: FieldDefinition[]): Promise<void> {
-    const db = this.db();
-    this.logger?.debug('createCollection', { collection: name, fieldCount: fields.length });
+    const db = this.db()
+    this.logger?.debug('createCollection', { collection: name, fieldCount: fields.length })
     try {
       await db.transaction(async (trx) => {
         // Filter out virtual field types (lookup fields have no DB column)
-        const dbFields = fields.filter(f => f.type !== 'lookup');
+        const dbFields = fields.filter((f) => f.type !== 'lookup')
         await trx.schema.createTable(name, (table) => {
           // System columns — PK based on strategy
           if (this.primaryKeyStrategy === 'auto-increment') {
-            table.increments('id').primary();
+            table.increments('id').primary()
           } else {
             // UUID strategy: text column for SQLite, native uuid for Postgres
             if (this.config.client === 'pg') {
-              table.uuid('id').primary();
+              table.uuid('id').primary()
             } else {
-              table.text('id').primary();
+              table.text('id').primary()
             }
           }
-          table.timestamp('created_at', { useTz: true }).defaultTo(db.fn.now()).notNullable();
-          table.timestamp('updated_at', { useTz: true }).defaultTo(db.fn.now()).notNullable();
+          table.timestamp('created_at', { useTz: true }).defaultTo(db.fn.now()).notNullable()
+          table.timestamp('updated_at', { useTz: true }).defaultTo(db.fn.now()).notNullable()
 
           // User-defined fields
           for (const field of dbFields) {
-            const col = applyFieldToTable(table, field);
+            applyFieldToTable(table, field)
 
             // Handle relation FK constraints
             if (field.type === 'relation' && field.relation) {
-              const fkCol = field.relation.foreignKey ?? field.name;
               if (field.relation.type === 'manyToOne' || field.relation.type === 'oneToOne') {
-                table.foreign(field.name).references('id').inTable(field.relation.target).onDelete('SET NULL');
+                table
+                  .foreign(field.name)
+                  .references('id')
+                  .inTable(field.relation.target)
+                  .onDelete('SET NULL')
               }
             }
           }
-        });
+        })
 
         // Create indexes on foreign key / relation columns
         for (const field of dbFields) {
           if (field.type === 'relation' && field.relation) {
             if (field.relation.type === 'manyToOne' || field.relation.type === 'oneToOne') {
-              await trx.raw(`CREATE INDEX IF NOT EXISTS idx_${name}_${field.name} ON "${name}"("${field.name}")`);
+              await trx.raw(
+                `CREATE INDEX IF NOT EXISTS idx_${name}_${field.name} ON "${name}"("${field.name}")`,
+              )
             }
           }
         }
@@ -140,202 +145,237 @@ export class KnexAdapter implements DatabaseAdapter {
         // Create junction tables for manyToMany relations
         for (const field of dbFields) {
           if (field.type === 'relation' && field.relation?.type === 'manyToMany') {
-            const junctionTable = field.relation.junctionTable ?? `${name}_${field.relation.target}`;
+            const junctionTable = field.relation.junctionTable ?? `${name}_${field.relation.target}`
             await trx.schema.createTable(junctionTable, (table) => {
-              table.increments('id').primary();
-              table.integer(`${name}_id`).unsigned().notNullable()
-                .references('id').inTable(name).onDelete('CASCADE');
-              table.integer(`${field.relation!.target}_id`).unsigned().notNullable()
-                .references('id').inTable(field.relation!.target).onDelete('CASCADE');
-              table.unique([`${name}_id`, `${field.relation!.target}_id`]);
-            });
+              table.increments('id').primary()
+              table
+                .integer(`${name}_id`)
+                .unsigned()
+                .notNullable()
+                .references('id')
+                .inTable(name)
+                .onDelete('CASCADE')
+              table
+                .integer(`${field.relation!.target}_id`)
+                .unsigned()
+                .notNullable()
+                .references('id')
+                .inTable(field.relation!.target)
+                .onDelete('CASCADE')
+              table.unique([`${name}_id`, `${field.relation!.target}_id`])
+            })
           }
         }
-      });
+      })
     } catch (err) {
-      throw new SchemaError(`Failed to create collection '${name}'`, err);
+      throw new SchemaError(`Failed to create collection '${name}'`, err)
     }
   }
 
   async addField(collection: string, field: FieldDefinition): Promise<void> {
     // Lookup fields are virtual — no DB column needed
-    if (field.type === 'lookup') return;
-    const db = this.db();
-    this.logger?.debug('addField', { collection, field: field.name });
+    if (field.type === 'lookup') return
+    const db = this.db()
+    this.logger?.debug('addField', { collection, field: field.name })
     try {
       await db.transaction(async (trx) => {
         await trx.schema.alterTable(collection, (table) => {
-          const col = applyFieldToTable(table, field);
+          const col = applyFieldToTable(table, field)
 
           // If required and table may have rows, need a default
           if (field.required && field.default === undefined) {
-            const defaultVal = getImplicitDefault(field.type as FieldType);
+            const defaultVal = getImplicitDefault(field.type as FieldType)
             if (defaultVal !== undefined) {
-              col.defaultTo(defaultVal as Knex.Value);
+              col.defaultTo(defaultVal as Knex.Value)
             }
           }
 
           // FK for relation fields
           if (field.type === 'relation' && field.relation) {
             if (field.relation.type === 'manyToOne' || field.relation.type === 'oneToOne') {
-              table.foreign(field.name).references('id').inTable(field.relation.target).onDelete('SET NULL');
+              table
+                .foreign(field.name)
+                .references('id')
+                .inTable(field.relation.target)
+                .onDelete('SET NULL')
             }
           }
-        });
+        })
 
         // Index for relation FK columns
         if (field.type === 'relation' && field.relation) {
           if (field.relation.type === 'manyToOne' || field.relation.type === 'oneToOne') {
-            await trx.raw(`CREATE INDEX IF NOT EXISTS idx_${collection}_${field.name} ON "${collection}"("${field.name}")`);
+            await trx.raw(
+              `CREATE INDEX IF NOT EXISTS idx_${collection}_${field.name} ON "${collection}"("${field.name}")`,
+            )
           }
         }
 
         // Junction table for m2m
         if (field.type === 'relation' && field.relation?.type === 'manyToMany') {
-          const junctionTable = field.relation.junctionTable ?? `${collection}_${field.relation.target}`;
+          const junctionTable =
+            field.relation.junctionTable ?? `${collection}_${field.relation.target}`
           await trx.schema.createTable(junctionTable, (table) => {
-            table.increments('id').primary();
-            table.integer(`${collection}_id`).unsigned().notNullable()
-              .references('id').inTable(collection).onDelete('CASCADE');
-            table.integer(`${field.relation!.target}_id`).unsigned().notNullable()
-              .references('id').inTable(field.relation!.target).onDelete('CASCADE');
-            table.unique([`${collection}_id`, `${field.relation!.target}_id`]);
-          });
+            table.increments('id').primary()
+            table
+              .integer(`${collection}_id`)
+              .unsigned()
+              .notNullable()
+              .references('id')
+              .inTable(collection)
+              .onDelete('CASCADE')
+            table
+              .integer(`${field.relation!.target}_id`)
+              .unsigned()
+              .notNullable()
+              .references('id')
+              .inTable(field.relation!.target)
+              .onDelete('CASCADE')
+            table.unique([`${collection}_id`, `${field.relation!.target}_id`])
+          })
         }
-      });
+      })
     } catch (err) {
-      throw new SchemaError(`Failed to add field '${field.name}' to '${collection}'`, err);
+      throw new SchemaError(`Failed to add field '${field.name}' to '${collection}'`, err)
     }
   }
 
   async removeField(collection: string, fieldName: string): Promise<void> {
-    const db = this.db();
+    const db = this.db()
     try {
       await db.transaction(async (trx) => {
         await trx.schema.alterTable(collection, (table) => {
-          table.dropColumn(fieldName);
-        });
-      });
+          table.dropColumn(fieldName)
+        })
+      })
     } catch (err) {
-      throw new SchemaError(`Failed to remove field '${fieldName}' from '${collection}'`, err);
+      throw new SchemaError(`Failed to remove field '${fieldName}' from '${collection}'`, err)
     }
   }
 
   async alterField(collection: string, fieldName: string, changes: FieldChanges): Promise<void> {
-    const db = this.db();
+    const db = this.db()
     try {
       await db.transaction(async (trx) => {
         // Rename first if needed
         if (changes.rename) {
           await trx.schema.alterTable(collection, (table) => {
-            table.renameColumn(fieldName, changes.rename!);
-          });
-          fieldName = changes.rename;
+            table.renameColumn(fieldName, changes.rename!)
+          })
+          fieldName = changes.rename
         }
 
         // Type change, nullable, default
-        const hasAlter = changes.type || changes.nullable !== undefined || changes.default !== undefined;
+        const hasAlter =
+          changes.type || changes.nullable !== undefined || changes.default !== undefined
         if (hasAlter) {
           await trx.schema.alterTable(collection, (table) => {
-            let col: Knex.ColumnBuilder;
+            let col: Knex.ColumnBuilder
 
             if (changes.type) {
               // Rebuild column with new type
-              const colType = fieldTypeToColumnType(changes.type);
-              col = table.specificType(fieldName, colType).alter();
+              const colType = fieldTypeToColumnType(changes.type)
+              col = table.specificType(fieldName, colType).alter()
             } else {
               // Just alter modifiers — use raw alter
-              col = table.specificType(fieldName, '').alter();
+              col = table.specificType(fieldName, '').alter()
             }
 
             if (changes.nullable === false || changes.required === true) {
-              col = col.notNullable();
+              col = col.notNullable()
             } else if (changes.nullable === true || changes.required === false) {
-              col = col.nullable();
+              col = col.nullable()
             }
 
             if (changes.default !== undefined) {
-              col = col.defaultTo(changes.default as Knex.Value);
+              col = col.defaultTo(changes.default as Knex.Value)
             }
 
             if (changes.unique === true) {
-              col = col.unique();
+              col.unique()
             }
-          });
+          })
         }
-      });
+      })
     } catch (err) {
-      throw new SchemaError(`Failed to alter field '${fieldName}' in '${collection}'`, err);
+      throw new SchemaError(`Failed to alter field '${fieldName}' in '${collection}'`, err)
     }
   }
 
   // ── CRUD ─────────────────────────────────────────────────────────
 
-  async create(collection: string, data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    const db = this.db();
+  async create(
+    collection: string,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const db = this.db()
     try {
-      const now = new Date().toISOString();
-      const row = { ...data, created_at: now, updated_at: now };
-      const [result] = await db(collection).insert(row).returning('*');
-      return result;
+      const now = new Date().toISOString()
+      const row = { ...data, created_at: now, updated_at: now }
+      const [result] = await db(collection).insert(row).returning('*')
+      return result
     } catch (err) {
-      throw new QueryError(`Failed to create record in '${collection}'`, err);
+      throw new QueryError(`Failed to create record in '${collection}'`, err)
     }
   }
 
   async findMany(collection: string, query: QueryAST): Promise<Record<string, unknown>[]> {
-    const db = this.db();
+    const db = this.db()
     try {
-      let qb = db(collection);
-      qb = applyQueryAST(qb, query);
-      return await qb;
+      let qb = db(collection)
+      qb = applyQueryAST(qb, query)
+      return await qb
     } catch (err) {
-      throw new QueryError(`Failed to query '${collection}'`, err);
+      throw new QueryError(`Failed to query '${collection}'`, err)
     }
   }
 
   async findOne(collection: string, query: QueryAST): Promise<Record<string, unknown> | null> {
-    const limited = { ...query, limit: 1 };
-    const results = await this.findMany(collection, limited);
-    return results[0] ?? null;
+    const limited = { ...query, limit: 1 }
+    const results = await this.findMany(collection, limited)
+    return results[0] ?? null
   }
 
-  async update(collection: string, query: QueryAST, data: Record<string, unknown>): Promise<Record<string, unknown>[]> {
-    const db = this.db();
+  async update(
+    collection: string,
+    query: QueryAST,
+    data: Record<string, unknown>,
+  ): Promise<Record<string, unknown>[]> {
+    const db = this.db()
     try {
-      const updateData = { ...data, updated_at: new Date().toISOString() };
-      let qb = db(collection);
-      qb = applyQueryAST(qb, query);
-      return await qb.update(updateData).returning('*');
+      const updateData = { ...data, updated_at: new Date().toISOString() }
+      let qb = db(collection)
+      qb = applyQueryAST(qb, query)
+      return await qb.update(updateData).returning('*')
     } catch (err) {
-      throw new QueryError(`Failed to update records in '${collection}'`, err);
+      throw new QueryError(`Failed to update records in '${collection}'`, err)
     }
   }
 
   async delete(collection: string, query: QueryAST): Promise<number> {
-    const db = this.db();
+    const db = this.db()
     try {
-      let qb = db(collection);
-      qb = applyQueryAST(qb, query);
-      return await qb.delete();
+      let qb = db(collection)
+      qb = applyQueryAST(qb, query)
+      return await qb.delete()
     } catch (err) {
-      throw new QueryError(`Failed to delete records from '${collection}'`, err);
+      throw new QueryError(`Failed to delete records from '${collection}'`, err)
     }
   }
 
   // ── Aggregation ───────────────────────────────────────────────────
 
   async count(collection: string, query?: QueryAST): Promise<number> {
-    const db = this.db();
+    const db = this.db()
     try {
-      let qb = db(collection);
+      let qb = db(collection)
       if (query) {
-        qb = applyQueryAST(qb, { ...query, limit: undefined, offset: undefined, sort: undefined });
+        qb = applyQueryAST(qb, { ...query, limit: undefined, offset: undefined, sort: undefined })
       }
-      const result = await qb.count('* as count').first();
-      return Number(result?.count ?? 0);
+      const result = await qb.count('* as count').first()
+      return Number(result?.count ?? 0)
     } catch (err) {
-      throw new QueryError(`Failed to count records in '${collection}'`, err);
+      throw new QueryError(`Failed to count records in '${collection}'`, err)
     }
   }
 
@@ -346,141 +386,140 @@ export class KnexAdapter implements DatabaseAdapter {
     query: QueryAST,
     populate: PopulateDefinition[],
   ): Promise<Record<string, unknown>[]> {
-    const db = this.db();
+    const db = this.db()
     try {
       // Fetch base records
-      const records = await this.findMany(collection, query);
-      if (records.length === 0) return records;
+      const records = await this.findMany(collection, query)
+      if (records.length === 0) return records
 
       // Populate each relation
       for (const pop of populate) {
         if (pop.type === 'manyToOne' || pop.type === 'oneToOne') {
           // Collect FK values
-          const fkValues = [...new Set(records.map(r => r[pop.foreignKey]).filter(Boolean))];
-          if (fkValues.length === 0) continue;
+          const fkValues = [...new Set(records.map((r) => r[pop.foreignKey]).filter(Boolean))]
+          if (fkValues.length === 0) continue
 
-          let relQb = db(pop.collection).whereIn('id', fkValues as number[]);
-          if (pop.select) relQb = relQb.select(pop.select);
-          const related = await relQb;
-          const relMap = new Map(related.map(r => [r.id, r]));
+          let relQb = db(pop.collection).whereIn('id', fkValues as number[])
+          if (pop.select) relQb = relQb.select(pop.select)
+          const related = await relQb
+          const relMap = new Map(related.map((r) => [r.id, r]))
 
           for (const record of records) {
-            const fk = record[pop.foreignKey];
-            record[pop.field] = fk != null ? relMap.get(fk) ?? null : null;
+            const fk = record[pop.foreignKey]
+            record[pop.field] = fk != null ? (relMap.get(fk) ?? null) : null
           }
         } else if (pop.type === 'oneToMany') {
-          const ids = records.map(r => r.id).filter(Boolean);
-          if (ids.length === 0) continue;
+          const ids = records.map((r) => r.id).filter(Boolean)
+          if (ids.length === 0) continue
 
-          let relQb = db(pop.collection).whereIn(pop.foreignKey, ids as number[]);
-          if (pop.select) relQb = relQb.select([...pop.select, pop.foreignKey]);
-          const related = await relQb;
+          let relQb = db(pop.collection).whereIn(pop.foreignKey, ids as number[])
+          if (pop.select) relQb = relQb.select([...pop.select, pop.foreignKey])
+          const related = await relQb
 
-          const relMap = new Map<unknown, Record<string, unknown>[]>();
+          const relMap = new Map<unknown, Record<string, unknown>[]>()
           for (const r of related) {
-            const key = r[pop.foreignKey];
-            if (!relMap.has(key)) relMap.set(key, []);
-            relMap.get(key)!.push(r);
+            const key = r[pop.foreignKey]
+            if (!relMap.has(key)) relMap.set(key, [])
+            relMap.get(key)!.push(r)
           }
 
           for (const record of records) {
-            record[pop.field] = relMap.get(record.id) ?? [];
+            record[pop.field] = relMap.get(record.id) ?? []
           }
         } else if (pop.type === 'manyToMany' && pop.junctionTable) {
-          const ids = records.map(r => r.id).filter(Boolean);
-          if (ids.length === 0) continue;
+          const ids = records.map((r) => r.id).filter(Boolean)
+          if (ids.length === 0) continue
 
-          const srcCol = `${collection}_id`;
-          const tgtCol = `${pop.collection}_id`;
+          const srcCol = `${collection}_id`
+          const tgtCol = `${pop.collection}_id`
 
-          const junctions = await db(pop.junctionTable)
-            .whereIn(srcCol, ids as number[]);
+          const junctions = await db(pop.junctionTable).whereIn(srcCol, ids as number[])
 
-          const tgtIds = [...new Set(junctions.map(j => j[tgtCol]))];
+          const tgtIds = [...new Set(junctions.map((j) => j[tgtCol]))]
           if (tgtIds.length === 0) {
-            for (const record of records) record[pop.field] = [];
-            continue;
+            for (const record of records) record[pop.field] = []
+            continue
           }
 
-          let relQb = db(pop.collection).whereIn('id', tgtIds as number[]);
-          if (pop.select) relQb = relQb.select(pop.select);
-          const related = await relQb;
-          const relMap = new Map(related.map(r => [r.id, r]));
+          let relQb = db(pop.collection).whereIn('id', tgtIds as number[])
+          if (pop.select) relQb = relQb.select(pop.select)
+          const related = await relQb
+          const relMap = new Map(related.map((r) => [r.id, r]))
 
           // Build junction map: srcId → [related records]
-          const jMap = new Map<unknown, Record<string, unknown>[]>();
+          const jMap = new Map<unknown, Record<string, unknown>[]>()
           for (const j of junctions) {
-            const src = j[srcCol];
-            if (!jMap.has(src)) jMap.set(src, []);
-            const rel = relMap.get(j[tgtCol]);
-            if (rel) jMap.get(src)!.push(rel);
+            const src = j[srcCol]
+            if (!jMap.has(src)) jMap.set(src, [])
+            const rel = relMap.get(j[tgtCol])
+            if (rel) jMap.get(src)!.push(rel)
           }
 
           for (const record of records) {
-            record[pop.field] = jMap.get(record.id) ?? [];
+            record[pop.field] = jMap.get(record.id) ?? []
           }
         }
       }
 
-      return records;
+      return records
     } catch (err) {
-      throw new QueryError(`Failed to query '${collection}' with relations`, err);
+      throw new QueryError(`Failed to query '${collection}' with relations`, err)
     }
   }
 
   // ── Transactions ─────────────────────────────────────────────────
 
   async transaction<T>(fn: (trx: TransactionClient) => Promise<T>): Promise<T> {
-    const db = this.db();
+    const db = this.db()
     return db.transaction(async (knexTrx) => {
       const client: TransactionClient = {
         create: async (collection, data) => {
-          const now = new Date().toISOString();
-          const row = { ...data, created_at: now, updated_at: now };
-          const [result] = await knexTrx(collection).insert(row).returning('*');
-          return result;
+          const now = new Date().toISOString()
+          const row = { ...data, created_at: now, updated_at: now }
+          const [result] = await knexTrx(collection).insert(row).returning('*')
+          return result
         },
         findMany: async (collection, query) => {
-          let qb = knexTrx(collection);
-          qb = applyQueryAST(qb, query);
-          return await qb;
+          let qb = knexTrx(collection)
+          qb = applyQueryAST(qb, query)
+          return await qb
         },
         findOne: async (collection, query) => {
-          const limited = { ...query, limit: 1 };
-          let qb = knexTrx(collection);
-          qb = applyQueryAST(qb, limited);
-          const results = await qb;
-          return results[0] ?? null;
+          const limited = { ...query, limit: 1 }
+          let qb = knexTrx(collection)
+          qb = applyQueryAST(qb, limited)
+          const results = await qb
+          return results[0] ?? null
         },
         update: async (collection, query, data) => {
-          const updateData = { ...data, updated_at: new Date().toISOString() };
-          let qb = knexTrx(collection);
-          qb = applyQueryAST(qb, query);
-          return await qb.update(updateData).returning('*');
+          const updateData = { ...data, updated_at: new Date().toISOString() }
+          let qb = knexTrx(collection)
+          qb = applyQueryAST(qb, query)
+          return await qb.update(updateData).returning('*')
         },
         delete: async (collection, query) => {
-          let qb = knexTrx(collection);
-          qb = applyQueryAST(qb, query);
-          return await qb.delete();
+          let qb = knexTrx(collection)
+          qb = applyQueryAST(qb, query)
+          return await qb.delete()
         },
-      };
-      return fn(client);
-    });
+      }
+      return fn(client)
+    })
   }
 
   // ── Introspection (DA-005) ───────────────────────────────────────
 
   async introspect(): Promise<DatabaseSchema> {
-    return introspectDatabase(this.db());
+    return introspectDatabase(this.db())
   }
 
   // ── Internal ─────────────────────────────────────────────────────
 
   private db(): Knex {
     if (!this.knex || !this.connected) {
-      throw new ConnectionError('Not connected to database');
+      throw new ConnectionError('Not connected to database')
     }
-    return this.knex;
+    return this.knex
   }
 }
 
@@ -488,11 +527,19 @@ export class KnexAdapter implements DatabaseAdapter {
 
 function getImplicitDefault(type: FieldType): unknown {
   switch (type) {
-    case 'text': case 'email': case 'select': return '';
-    case 'integer': return 0;
-    case 'float': return 0.0;
-    case 'boolean': return false;
-    case 'json': return '{}';
-    default: return undefined;
+    case 'text':
+    case 'email':
+    case 'select':
+      return ''
+    case 'integer':
+      return 0
+    case 'float':
+      return 0.0
+    case 'boolean':
+      return false
+    case 'json':
+      return '{}'
+    default:
+      return undefined
   }
 }

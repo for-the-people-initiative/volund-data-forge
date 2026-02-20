@@ -11,7 +11,12 @@ const emit = defineEmits<{
 
 const localName = ref(props.schema.name)
 
-watch(() => props.schema.name, (n) => { localName.value = n })
+watch(
+  () => props.schema.name,
+  (n) => {
+    localName.value = n
+  },
+)
 
 function onBlur() {
   if (localName.value !== props.schema.name) {

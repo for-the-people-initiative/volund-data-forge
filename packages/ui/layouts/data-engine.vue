@@ -2,7 +2,9 @@
 const routePrefix = useRuntimeConfig().public.dataEngine.routePrefix
 const route = useRoute()
 
-const { data: dynamicCollections, refresh: refreshCollections } = useFetch<Array<{ name: string }>>('/api/schema', {
+const { data: dynamicCollections, refresh: _refreshCollections } = useFetch<
+  Array<{ name: string }>
+>('/api/schema', {
   key: 'sidebar-collections',
   default: () => [],
 })
@@ -31,9 +33,12 @@ function closeSidebar() {
 }
 
 // Close sidebar on navigation
-watch(() => route.fullPath, () => {
-  closeSidebar()
-})
+watch(
+  () => route.fullPath,
+  () => {
+    closeSidebar()
+  },
+)
 </script>
 
 <template>
@@ -46,11 +51,7 @@ watch(() => route.fullPath, () => {
     </button>
 
     <!-- Overlay (mobile only) -->
-    <div
-      v-if="sidebarOpen"
-      class="de-layout__overlay"
-      @click="closeSidebar"
-    />
+    <div v-if="sidebarOpen" class="de-layout__overlay" @click="closeSidebar" />
 
     <aside class="de-layout__sidebar" :class="{ 'de-layout__sidebar--open': sidebarOpen }">
       <NuxtLink :to="routePrefix" class="de-layout__brand">
@@ -78,7 +79,12 @@ watch(() => route.fullPath, () => {
       </div>
     </aside>
     <main class="de-layout__main">
-      <slot />
+      <NuxtErrorBoundary>
+        <slot />
+        <template #error="{ error, clearError }">
+          <ErrorFallback label="Deze pagina" @retry="clearError" />
+        </template>
+      </NuxtErrorBoundary>
     </main>
   </div>
 </template>
@@ -182,7 +188,9 @@ watch(() => route.fullPath, () => {
   color: var(--text-secondary, #9ea5c2);
   text-decoration: none;
   font-size: 0.875rem;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .de-layout__nav-item:hover {

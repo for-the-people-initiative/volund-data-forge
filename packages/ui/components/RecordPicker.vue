@@ -33,17 +33,18 @@ const selectedIds = computed<string[]>(() => {
 })
 
 // Selected record objects (for chips display)
-const selectedRecords = computed(() =>
-  selectedIds.value
-    .map(id => allRecords.value.find(r => r.id === id))
-    .filter(Boolean) as Array<{ id: string; label: string }>
+const selectedRecords = computed(
+  () =>
+    selectedIds.value
+      .map((id) => allRecords.value.find((r) => r.id === id))
+      .filter(Boolean) as Array<{ id: string; label: string }>,
 )
 
 // Filtered records based on search
 const filteredRecords = computed(() => {
   const q = search.value.toLowerCase().trim()
   if (!q) return allRecords.value
-  return allRecords.value.filter(r => r.label.toLowerCase().includes(q))
+  return allRecords.value.filter((r) => r.label.toLowerCase().includes(q))
 })
 
 // Load records when opened
@@ -98,7 +99,10 @@ function selectRecord(record: { id: string; label: string }) {
 
 function removeSelected(id: string) {
   if (props.multiple) {
-    emit('update:modelValue', selectedIds.value.filter(v => v !== id))
+    emit(
+      'update:modelValue',
+      selectedIds.value.filter((v) => v !== id),
+    )
   } else {
     emit('update:modelValue', null)
   }
@@ -114,18 +118,16 @@ function handleKeydown(e: KeyboardEvent) {
   <div class="record-picker">
     <!-- Chips display + trigger -->
     <div class="record-picker__display" @click="openModal">
-      <span
-        v-for="rec in selectedRecords"
-        :key="rec.id"
-        class="record-picker__chip"
-      >
+      <span v-for="rec in selectedRecords" :key="rec.id" class="record-picker__chip">
         {{ rec.label }}
         <button
           type="button"
           class="record-picker__chip-remove"
           aria-label="Verwijder"
           @click.stop="removeSelected(rec.id)"
-        >×</button>
+        >
+          ×
+        </button>
       </span>
       <span v-if="!selectedRecords.length" class="record-picker__placeholder">
         {{ placeholder ?? `Kies ${collection}...` }}
@@ -135,11 +137,23 @@ function handleKeydown(e: KeyboardEvent) {
 
     <!-- Modal overlay -->
     <Teleport to="body">
-      <div v-if="open" class="record-picker__overlay" @click.self="closeModal" @keydown="handleKeydown">
+      <div
+        v-if="open"
+        class="record-picker__overlay"
+        @click.self="closeModal"
+        @keydown="handleKeydown"
+      >
         <div class="record-picker__modal" role="dialog" aria-label="Record kiezen">
           <div class="record-picker__header">
             <h3 class="record-picker__title">{{ collection }}</h3>
-            <button type="button" class="record-picker__close" @click="closeModal" aria-label="Sluiten">×</button>
+            <button
+              type="button"
+              class="record-picker__close"
+              @click="closeModal"
+              aria-label="Sluiten"
+            >
+              ×
+            </button>
           </div>
 
           <!-- Search -->
@@ -157,7 +171,9 @@ function handleKeydown(e: KeyboardEvent) {
           <!-- Record list -->
           <div class="record-picker__list">
             <div v-if="loading" class="record-picker__empty">Laden...</div>
-            <div v-else-if="!filteredRecords.length" class="record-picker__empty">Geen resultaten gevonden</div>
+            <div v-else-if="!filteredRecords.length" class="record-picker__empty">
+              Geen resultaten gevonden
+            </div>
             <button
               v-for="rec in filteredRecords"
               v-else
@@ -168,16 +184,28 @@ function handleKeydown(e: KeyboardEvent) {
               @click="selectRecord(rec)"
             >
               <span class="record-picker__item-label">{{ rec.label }}</span>
-              <span v-if="isSelected(rec.id)" class="record-picker__item-check" aria-hidden="true">✓</span>
+              <span v-if="isSelected(rec.id)" class="record-picker__item-check" aria-hidden="true"
+                >✓</span
+              >
             </button>
           </div>
 
           <!-- Footer -->
           <div class="record-picker__footer">
-            <button type="button" class="record-picker__new-btn" disabled title="Binnenkort beschikbaar">
+            <button
+              type="button"
+              class="record-picker__new-btn"
+              disabled
+              title="Binnenkort beschikbaar"
+            >
               + Nieuw aanmaken
             </button>
-            <button v-if="multiple" type="button" class="record-picker__done-btn" @click="closeModal">
+            <button
+              v-if="multiple"
+              type="button"
+              class="record-picker__done-btn"
+              @click="closeModal"
+            >
               Klaar
             </button>
           </div>
