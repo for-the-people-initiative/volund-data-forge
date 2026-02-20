@@ -26,12 +26,16 @@ export interface FieldDefinition {
   lookup?: { relation: string; field: string };
 }
 
+/** onDelete policy for relations */
+export type OnDeletePolicy = 'setNull' | 'cascade' | 'restrict';
+
 /** Relation definition */
 export interface RelationDefinition {
   target: string;
   type: RelationType;
   foreignKey?: string;
   junctionTable?: string;
+  onDelete?: OnDeletePolicy;
 }
 
 /** Hook reference (by name, not implementation) */

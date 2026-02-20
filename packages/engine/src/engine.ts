@@ -2,7 +2,7 @@
  * CE-003 through CE-008: DataEngine — CRUD operations with hooks, relations, transactions
  */
 
-import type { SchemaRegistry, CollectionSchema, Logger } from '@data-engine/schema';
+import type { SchemaRegistry, CollectionSchema, Logger, OnDeletePolicy } from '@data-engine/schema';
 import { compileValidator, generateUUIDv7, EngineError } from '@data-engine/schema';
 import type { DatabaseAdapter, QueryAST, TransactionClient, PopulateDefinition, PrimaryKeyStrategy } from '@data-engine/adapter';
 import type { HookEvent, HookFunction, HookContext, EngineOptions, PopulateOption } from './types.js';
@@ -256,8 +256,16 @@ export class DataEngine {
 
     await this.fireHooks({ collection, event: 'beforeDelete', query, transaction: txClient });
 
-    const start = Date.now();
+    // ── onDelete policy enforcement ──
+    // Find records to be deleted first
     const client = txClient ?? this.adapter;
+    const toDelete = await client.findMany(collection, query);
+    if (toDelete.length > 0) {
+      const ids = toDelete.map(r => r['id']).filter(Boolean);
+      await this.enforceOnDeletePolicies(collection, ids, client);
+    }
+
+    const start = Date.now();
     let count: number;
     try {
       count = await client.delete(collection, query);
@@ -270,6 +278,84 @@ export class DataEngine {
     await this.fireHooks({ collection, event: 'afterDelete', query, result: count, transaction: txClient });
 
     return count;
+  }
+
+  // ─── onDelete Policy Enforcement ───────────────────────────────────
+
+  private async enforceOnDeletePolicies(
+    collection: string,
+    ids: unknown[],
+    client: DatabaseAdapter | TransactionClient,
+  ): Promise<void> {
+    if (ids.length === 0) return;
+
+    // Find all collections that reference this collection via relation fields
+    for (const schema of this.registry.getAll()) {
+      for (const field of schema.fields) {
+        if (field.type !== 'relation' || !field.relation) continue;
+        if (field.relation.target !== collection) continue;
+
+        const rel = field.relation;
+        const policy: OnDeletePolicy = rel.onDelete ?? 'setNull';
+        const fk = rel.foreignKey ?? `${field.name}_id`;
+
+        if (rel.type === 'manyToOne' || rel.type === 'oneToOne') {
+          const relQuery: QueryAST = {
+            filters: { and: [{ field: fk, operator: 'in', value: ids }] },
+          };
+
+          if (policy === 'restrict') {
+            const related = await client.findMany(schema.name, relQuery);
+            if (related.length > 0) {
+              throw new EngineError(
+                `Kan niet verwijderen: er zijn nog ${related.length} gekoppelde ${schema.name} records`,
+                'RESTRICT_VIOLATION',
+                409,
+              );
+            }
+          } else if (policy === 'cascade') {
+            const related = await client.findMany(schema.name, relQuery);
+            if (related.length > 0) {
+              await client.delete(schema.name, relQuery);
+            }
+          } else {
+            // setNull (default)
+            const related = await client.findMany(schema.name, relQuery);
+            if (related.length > 0) {
+              await client.update(schema.name, relQuery, { [fk]: null });
+            }
+          }
+        } else if (rel.type === 'oneToMany') {
+          const fkOneToMany = rel.foreignKey ?? `${collection}_id`;
+          const relQuery: QueryAST = {
+            filters: { and: [{ field: fkOneToMany, operator: 'in', value: ids }] },
+          };
+
+          if (policy === 'restrict') {
+            const related = await client.findMany(schema.name, relQuery);
+            if (related.length > 0) {
+              throw new EngineError(
+                `Kan niet verwijderen: er zijn nog ${related.length} gekoppelde ${schema.name} records`,
+                'RESTRICT_VIOLATION',
+                409,
+              );
+            }
+          } else if (policy === 'cascade') {
+            const related = await client.findMany(schema.name, relQuery);
+            if (related.length > 0) {
+              await client.delete(schema.name, relQuery);
+            }
+          } else {
+            // setNull
+            const related = await client.findMany(schema.name, relQuery);
+            if (related.length > 0) {
+              await client.update(schema.name, relQuery, { [fkOneToMany]: null });
+            }
+          }
+        }
+        // manyToMany junction cleanup is handled by DB-level CASCADE on junction tables
+      }
+    }
   }
 
   // ─── CE-007: Relation Population ──────────────────────────────────

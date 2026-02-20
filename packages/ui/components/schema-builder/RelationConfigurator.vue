@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { RelationDefinition, RelationType } from '@data-engine/schema'
+import type { RelationDefinition, RelationType, OnDeletePolicy } from '@data-engine/schema'
 
 const props = defineProps<{
   relation: RelationDefinition | undefined
@@ -11,7 +11,11 @@ const emit = defineEmits<{ 'update:relation': [relation: RelationDefinition] }>(
 
 const target = ref(props.relation?.target ?? '')
 const maxOne = ref(props.relation?.type === 'manyToOne' || props.relation?.type === 'oneToOne')
-const deletePolicy = ref<'none' | 'cascade' | 'restrict'>('none')
+const deletePolicy = ref<'none' | 'cascade' | 'restrict'>(
+  props.relation?.onDelete === 'cascade' ? 'cascade'
+    : props.relation?.onDelete === 'restrict' ? 'restrict'
+    : 'none'
+)
 const showAdvanced = ref(false)
 const selfRefWarning = ref(false)
 
@@ -31,6 +35,9 @@ watch(() => props.relation, (r) => {
   if (r) {
     target.value = r.target
     maxOne.value = r.type === 'manyToOne' || r.type === 'oneToOne'
+    deletePolicy.value = r.onDelete === 'cascade' ? 'cascade'
+      : r.onDelete === 'restrict' ? 'restrict'
+      : 'none'
   }
 }, { immediate: true })
 
@@ -38,10 +45,15 @@ function emitRelation() {
   if (!target.value) return
   const type: RelationType = maxOne.value ? 'manyToOne' : 'manyToMany'
   const foreignKey = `${props.sourceCollection}_${target.value}_fk`
+  const onDelete: OnDeletePolicy | undefined =
+    deletePolicy.value === 'cascade' ? 'cascade'
+      : deletePolicy.value === 'restrict' ? 'restrict'
+      : undefined  // default (setNull) — omit from schema
   const relation: RelationDefinition = {
     target: target.value,
     type,
     foreignKey,
+    ...(onDelete && { onDelete }),
   }
   if (type === 'manyToMany') {
     relation.junctionTable = `${props.sourceCollection}_${target.value}`

@@ -1,9 +1,10 @@
 /**
  * GET /api/collections-list — returns all registered collections with record counts.
  */
-import { getRegistry, getAdapter } from '../utils/engine';
+import { getRegistry, getAdapter, waitForEngine } from '../utils/engine';
 
 export default defineEventHandler(async () => {
+  await waitForEngine();
   const registry = getRegistry();
   const adapter = getAdapter();
 

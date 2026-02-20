@@ -180,7 +180,7 @@ export class ApiRouter {
       const afterCtx: HookContext = { collection: schema.name, event: 'afterDelete', query, result: count };
       await executeHooks(schema, 'afterDelete', afterCtx, this.hookRegistry);
 
-      return successSingle({ deleted: count });
+      return { status: 204, body: null as any };
     } catch (err) {
       return this.mapError(err);
     }

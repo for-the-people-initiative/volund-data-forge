@@ -14,6 +14,19 @@ let _adapter: DatabaseAdapter | null = null;
 let _apiRouter: ApiRouter | null = null;
 let _migrationManager: MigrationManager | null = null;
 
+// Readiness gate: resolves when the engine is fully initialized
+let _readyResolve: () => void;
+const _ready: Promise<void> = new Promise((resolve) => { _readyResolve = resolve; });
+
+/**
+ * Wait for the data engine to be fully initialized.
+ * Call this at the top of API route handlers to avoid race conditions
+ * where SSR requests arrive before the Nitro plugin finishes.
+ */
+export function waitForEngine(): Promise<void> {
+  return _ready;
+}
+
 export function setEngine(
   engine: DataEngine,
   registry: SchemaRegistry,
@@ -24,6 +37,8 @@ export function setEngine(
   _registry = registry;
   _adapter = adapter;
   _apiRouter = apiRouter ?? null;
+  // Signal that engine is ready
+  _readyResolve();
 }
 
 export function setMigrationManager(mm: MigrationManager) {

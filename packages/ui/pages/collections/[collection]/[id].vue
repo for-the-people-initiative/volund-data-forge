@@ -10,28 +10,23 @@ const { getRecord, deleteRecord } = useDataEngine()
 const { fields } = useSchema(collection.value)
 
 const editing = ref(false)
-const record = ref<Record<string, unknown> | null>(null)
-const loading = ref(true)
 const showDeleteConfirm = ref(false)
 const deleting = ref(false)
 
-async function loadRecord() {
-  loading.value = true
-  try {
+const { data: record, status: recordStatus, refresh: refreshRecord } = await useAsyncData(
+  `record-${collection.value}-${id.value}`,
+  async () => {
     const { data } = await getRecord(collection.value, id.value)
     const raw = data.value as Record<string, unknown>
-    record.value = ((raw?.data ?? raw) as Record<string, unknown>) ?? null
-  } finally {
-    loading.value = false
-  }
-}
+    return ((raw?.data ?? raw) as Record<string, unknown>) ?? null
+  },
+)
 
-onMounted(loadRecord)
+const loading = computed(() => recordStatus.value === 'pending')
 
-function onSuccess(updated: Record<string, unknown>) {
-  record.value = updated
+function onSuccess(_updated: Record<string, unknown>) {
   editing.value = false
-  loadRecord() // refresh from server
+  refreshRecord() // refresh from server
 }
 
 async function handleDelete() {

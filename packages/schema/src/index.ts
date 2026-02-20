@@ -17,6 +17,7 @@ export type {
   FieldDiff,
   SchemaDiff,
   ReservedField,
+  OnDeletePolicy,
 } from './types.js';
 export { RESERVED_FIELDS } from './types.js';
 

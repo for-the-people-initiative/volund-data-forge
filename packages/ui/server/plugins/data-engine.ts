@@ -108,12 +108,13 @@ export default defineNitroPlugin(async (nitroApp) => {
   }
 
   // 4. Apply default schemas (companies + contacts) — idempotent via migration manager
-  await migrationManager.applySchema(companiesSchema);
+  //    Use force:true to handle schema drift (e.g. fields added/removed via builder)
+  await migrationManager.applySchema(companiesSchema, { force: true });
   if (!restoredCollections.has('companies')) {
     logger.info('[data-engine] Schema "companies" created');
   }
 
-  await migrationManager.applySchema(contactsSchema);
+  await migrationManager.applySchema(contactsSchema, { force: true });
   if (!restoredCollections.has('contacts')) {
     logger.info('[data-engine] Schema "contacts" created');
   }

@@ -200,8 +200,7 @@ describe('API Endpoints', () => {
         params: { collection: 'tasks', id: createdId },
       }));
 
-      expect(res.status).toBe(200);
-      expect((res.body as any).data.deleted).toBe(1);
+      expect(res.status).toBe(204);
     });
 
     it('DELETE — 404 for already-deleted record', async () => {

@@ -11,12 +11,14 @@ function onSaved(name: string) {
   if (!route.query.collection) {
     router.replace({ query: { collection: name } })
   }
-  // Trigger sidebar refresh
+  // Trigger sidebar + dashboard refresh
+  refreshNuxtData('sidebar-collections')
   refreshNuxtData('collections-list')
 }
 
 function onDeleted(_name: string) {
   router.replace({ path: '/builder' })
+  refreshNuxtData('sidebar-collections')
   refreshNuxtData('collections-list')
 }
 </script>

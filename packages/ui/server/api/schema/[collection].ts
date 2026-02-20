@@ -3,11 +3,12 @@
  * PUT    /api/schema/:collection — update a collection schema (with migration)
  * DELETE /api/schema/:collection — remove a collection from registry
  */
-import { getRegistry, getMigrationManager } from '../../utils/engine';
+import { getRegistry, getMigrationManager, waitForEngine } from '../../utils/engine';
 import { validateSchema, DataEngineError } from '@data-engine/schema';
 import type { CollectionSchema } from '@data-engine/schema';
 
 export default defineEventHandler(async (event) => {
+  await waitForEngine();
   const collection = getRouterParam(event, 'collection');
   if (!collection) {
     setResponseStatus(event, 400);

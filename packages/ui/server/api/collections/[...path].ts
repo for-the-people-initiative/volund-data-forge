@@ -2,11 +2,12 @@
  * Catch-all route for /api/collections/**
  * Delegates to the Data Engine's ApiRouter (H3 adapter pattern).
  */
-import { getApiRouter, getRegistry, getAdapter } from '../../utils/engine';
+import { getApiRouter, getRegistry, getAdapter, waitForEngine } from '../../utils/engine';
 import type { RequestContext } from '@data-engine/api';
 import type { FieldDefinition } from '@data-engine/schema';
 
 export default defineEventHandler(async (event) => {
+  await waitForEngine();
   const apiRouter = getApiRouter();
 
   // Parse path: /api/collections/:collection[/:id]
@@ -95,6 +96,11 @@ export default defineEventHandler(async (event) => {
   // Execute and return
   const response = await route.handler(reqCtx);
   setResponseStatus(event, response.status);
+
+  if (response.status === 204) {
+    return null;
+  }
+
   setResponseHeader(event, 'content-type', 'application/json');
 
   // Resolve lookup fields for GET requests

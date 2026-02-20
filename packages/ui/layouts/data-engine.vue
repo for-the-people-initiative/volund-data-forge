@@ -3,7 +3,7 @@ const routePrefix = useRuntimeConfig().public.dataEngine.routePrefix
 const route = useRoute()
 
 const { data: dynamicCollections, refresh: refreshCollections } = useFetch<Array<{ name: string }>>('/api/schema', {
-  key: 'collections-list',
+  key: 'sidebar-collections',
   default: () => [],
 })
 
