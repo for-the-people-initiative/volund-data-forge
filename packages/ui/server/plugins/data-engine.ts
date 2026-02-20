@@ -6,7 +6,8 @@ import { createDataEngine } from '@data-engine/engine';
 import type { DataEngineInstance } from '@data-engine/engine';
 import { createConsoleLogger } from '@data-engine/schema';
 import type { CollectionSchema } from '@data-engine/schema';
-import { setEngine } from '../utils/engine';
+import { setEngine, setMigrationManager } from '../utils/engine';
+import { MigrationManager } from '@data-engine/migration';
 
 const companiesSchema: CollectionSchema = {
   name: 'companies',
@@ -56,16 +57,15 @@ export default defineNitroPlugin(async (nitroApp) => {
 
   const { engine, registry, adapter, apiRouter } = instance;
 
-  // 2. Register schemas (companies first — target of relation)
-  await registry.register(companiesSchema);
-  logger.info('[data-engine] Schema "companies" registered');
+  // 2. Initialize migration manager & create schemas via it
+  const migrationManager = new MigrationManager(registry, adapter, logger);
+  await migrationManager.init();
 
-  await registry.register(contactsSchema);
-  logger.info('[data-engine] Schema "contacts" registered');
+  await migrationManager.applySchema(companiesSchema);
+  logger.info('[data-engine] Schema "companies" registered + table created');
 
-  // 3. Create tables
-  await adapter.createCollection('companies', companiesSchema.fields);
-  await adapter.createCollection('contacts', contactsSchema.fields);
+  await migrationManager.applySchema(contactsSchema);
+  logger.info('[data-engine] Schema "contacts" registered + table created');
 
   // 4. Seed companies
   const companiesSeeds = [
@@ -96,7 +96,10 @@ export default defineNitroPlugin(async (nitroApp) => {
   }
   logger.info(`[data-engine] Seeded ${contactsSeeds.length} contacts`);
 
-  // 6. Export engine + apiRouter for server routes
+  // 6. Export migration manager
+  setMigrationManager(migrationManager);
+
+  // 7. Export engine + apiRouter for server routes
   setEngine(engine, registry, adapter, apiRouter);
   logger.info('[data-engine] ✅ CRM Ready');
 

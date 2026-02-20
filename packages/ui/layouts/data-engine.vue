@@ -12,7 +12,11 @@ const routePrefix = useRuntimeConfig().public.dataEngine.routePrefix
         <NuxtLink to="/" class="de-layout__nav-item">📊 Dashboard</NuxtLink>
         <NuxtLink to="/collections/contacts" class="de-layout__nav-item">👤 Contacten</NuxtLink>
         <NuxtLink to="/collections/companies" class="de-layout__nav-item">🏢 Bedrijven</NuxtLink>
+        <NuxtLink to="/builder" class="de-layout__nav-item">🏗️ Schema Builder</NuxtLink>
       </nav>
+      <div class="de-layout__nav-bottom">
+        <NuxtLink to="/about" class="de-layout__nav-item">ℹ️ Over Volund</NuxtLink>
+      </div>
     </aside>
     <main class="de-layout__main">
       <slot />
@@ -35,6 +39,15 @@ const routePrefix = useRuntimeConfig().public.dataEngine.routePrefix
   display: flex;
   flex-direction: column;
   gap: var(--space-m, 16px);
+}
+
+.de-layout__nav-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs, 4px);
+  padding-top: var(--space-s, 10px);
+  border-top: 1px solid var(--border-subtle, #1a2244);
 }
 
 .de-layout__brand {
