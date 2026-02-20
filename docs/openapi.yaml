@@ -1,0 +1,574 @@
+openapi: 3.0.3
+info:
+  title: Volund Data Forge API
+  description: REST API voor dynamisch collectie- en schemabeheer.
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:9001
+    description: Lokale ontwikkelserver
+
+paths:
+  # ─── Schema Endpoints ──────────────────────────────────────────
+
+  /api/schema:
+    get:
+      summary: Alle schemas ophalen
+      description: Geeft een lijst van alle geregistreerde collectie-schemas terug.
+      operationId: listSchemas
+      tags: [Schema]
+      responses:
+        '200':
+          description: Lijst van schemas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CollectionSchema'
+
+    post:
+      summary: Collectie aanmaken
+      description: Registreert een nieuw collectie-schema en maakt de bijbehorende tabel aan.
+      operationId: createSchema
+      tags: [Schema]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionSchema'
+      responses:
+        '201':
+          description: Schema succesvol aangemaakt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionSchema'
+        '400':
+          description: Validatiefout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Migratie mislukt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/schema/{collection}:
+    parameters:
+      - $ref: '#/components/parameters/CollectionName'
+
+    get:
+      summary: Schema ophalen
+      description: Geeft het schema van een specifieke collectie terug.
+      operationId: getSchema
+      tags: [Schema]
+      responses:
+        '200':
+          description: Het gevraagde schema
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionSchema'
+        '404':
+          description: Schema niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    put:
+      summary: Schema bijwerken
+      description: Werkt een bestaand collectie-schema bij en voert migraties uit.
+      operationId: updateSchema
+      tags: [Schema]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionSchema'
+      responses:
+        '200':
+          description: Schema succesvol bijgewerkt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionSchema'
+        '400':
+          description: Validatiefout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Schema niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '500':
+          description: Migratie mislukt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    delete:
+      summary: Collectie verwijderen
+      description: Verwijdert een collectie-schema uit de registry. De tabel wordt (nog) niet gedropt.
+      operationId: deleteSchema
+      tags: [Schema]
+      responses:
+        '204':
+          description: Schema succesvol verwijderd
+        '404':
+          description: Schema niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  # ─── Record Endpoints ──────────────────────────────────────────
+
+  /api/collections/{collection}:
+    parameters:
+      - $ref: '#/components/parameters/CollectionName'
+
+    get:
+      summary: Records ophalen
+      description: Geeft een gepagineerde lijst van records terug, met ondersteuning voor filtering, sortering en veld-selectie.
+      operationId: listRecords
+      tags: [Records]
+      parameters:
+        - name: filter[field][operator]
+          in: query
+          description: >
+            Filterconditie in bracket-notatie. Veld en operator zijn variabel.
+            Ondersteunde operators: eq, neq, gt, gte, lt, lte, in, nin, like, ilike, null, notNull, between.
+            Voorbeeld: `filter[status][eq]=active`
+          required: false
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: >
+            Komma-gescheiden veldnamen. Prefix `-` voor aflopend.
+            Voorbeeld: `sort=-created_at,name`
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Paginanummer (1-gebaseerd). Werkt samen met `limit`.
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+        - name: limit
+          in: query
+          description: Maximum aantal records per pagina.
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: offset
+          in: query
+          description: Aantal records om over te slaan. Alternatief voor `page`.
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+        - name: fields
+          in: query
+          description: >
+            Komma-gescheiden lijst van velden om te retourneren.
+            Voorbeeld: `fields=name,email`
+          required: false
+          schema:
+            type: string
+        - name: populate
+          in: query
+          description: >
+            Komma-gescheiden lijst van relaties om mee te laden.
+            Voorbeeld: `populate=company,tags`
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lijst van records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResponse'
+        '404':
+          description: Collectie niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    post:
+      summary: Record aanmaken
+      description: Maakt een nieuw record aan in de opgegeven collectie.
+      operationId: createRecord
+      tags: [Records]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Velden van het nieuwe record (conform het collectie-schema).
+              additionalProperties: true
+      responses:
+        '201':
+          description: Record succesvol aangemaakt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleRecordResponse'
+        '400':
+          description: Validatiefout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Collectie niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type moet application/json zijn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/collections/{collection}/{id}:
+    parameters:
+      - $ref: '#/components/parameters/CollectionName'
+      - $ref: '#/components/parameters/RecordId'
+
+    get:
+      summary: Record ophalen
+      description: Geeft een enkel record terug op basis van ID.
+      operationId: getRecord
+      tags: [Records]
+      parameters:
+        - name: populate
+          in: query
+          description: Komma-gescheiden lijst van relaties om mee te laden.
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Het gevraagde record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleRecordResponse'
+        '404':
+          description: Record of collectie niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    put:
+      summary: Record bijwerken
+      description: Werkt een bestaand record bij op basis van ID.
+      operationId: updateRecord
+      tags: [Records]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Velden om bij te werken.
+              additionalProperties: true
+      responses:
+        '200':
+          description: Record succesvol bijgewerkt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SingleRecordResponse'
+        '400':
+          description: Validatiefout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Record of collectie niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '415':
+          description: Content-Type moet application/json zijn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+    delete:
+      summary: Record verwijderen
+      description: Verwijdert een record op basis van ID.
+      operationId: deleteRecord
+      tags: [Records]
+      responses:
+        '204':
+          description: Record succesvol verwijderd
+        '404':
+          description: Record of collectie niet gevonden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  # ─── Collections List ──────────────────────────────────────────
+
+  /api/collections-list:
+    get:
+      summary: Collecties met aantallen ophalen
+      description: Geeft een overzicht van alle geregistreerde collecties met het aantal records en velden.
+      operationId: listCollections
+      tags: [Collections]
+      responses:
+        '200':
+          description: Lijst van collecties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [name, count, fieldCount]
+                  properties:
+                    name:
+                      type: string
+                      description: Naam van de collectie
+                    count:
+                      type: integer
+                      description: Aantal records in de collectie
+                    fieldCount:
+                      type: integer
+                      description: Aantal velden in het schema
+
+components:
+  parameters:
+    CollectionName:
+      name: collection
+      in: path
+      required: true
+      description: Naam van de collectie
+      schema:
+        type: string
+        pattern: '^[a-z][a-z0-9_]*$'
+
+    RecordId:
+      name: id
+      in: path
+      required: true
+      description: Unieke ID van het record
+      schema:
+        type: string
+
+  schemas:
+    CollectionSchema:
+      type: object
+      required: [name, fields]
+      properties:
+        name:
+          type: string
+          description: Unieke naam van de collectie
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldDefinition'
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RelationDefinition'
+        hooks:
+          type: array
+          items:
+            $ref: '#/components/schemas/HookReference'
+        ui:
+          $ref: '#/components/schemas/UINamespace'
+        metadata:
+          $ref: '#/components/schemas/CollectionMetadata'
+
+    FieldDefinition:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+          description: Veldnaam
+        type:
+          type: string
+          description: 'Veldtype (bijv. text, number, boolean, date, select, relation, lookup)'
+        required:
+          type: boolean
+        unique:
+          type: boolean
+        default:
+          description: Standaardwaarde
+        validations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldValidation'
+        options:
+          type: array
+          items:
+            type: string
+          description: Opties voor select-velden
+        relation:
+          $ref: '#/components/schemas/RelationDefinition'
+        lookup:
+          type: object
+          properties:
+            relation:
+              type: string
+            field:
+              type: string
+          required: [relation, field]
+
+    FieldValidation:
+      type: object
+      required: [rule]
+      properties:
+        rule:
+          type: string
+        value: {}
+        message:
+          type: string
+
+    RelationDefinition:
+      type: object
+      required: [target, type]
+      properties:
+        target:
+          type: string
+          description: Naam van de doelcollectie
+        type:
+          type: string
+          enum: [oneToOne, manyToOne, oneToMany, manyToMany]
+        foreignKey:
+          type: string
+        junctionTable:
+          type: string
+        onDelete:
+          type: string
+          enum: [setNull, cascade, restrict]
+
+    HookReference:
+      type: object
+      required: [event, handler]
+      properties:
+        event:
+          type: string
+          enum: [beforeCreate, afterCreate, beforeUpdate, afterUpdate, beforeDelete, afterDelete]
+        handler:
+          type: string
+
+    UINamespace:
+      type: object
+      properties:
+        icon:
+          type: string
+        displayTemplate:
+          type: string
+        hidden:
+          type: boolean
+        group:
+          type: string
+        sort:
+          type: integer
+
+    CollectionMetadata:
+      type: object
+      properties:
+        singleton:
+          type: boolean
+        timestamps:
+          type: boolean
+        softDelete:
+          type: boolean
+      additionalProperties: true
+
+    PaginatedResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          description: Lijst van records
+        meta:
+          type: object
+          required: [total]
+          properties:
+            total:
+              type: integer
+              description: Totaal aantal geretourneerde records
+            page:
+              type: integer
+            limit:
+              type: integer
+
+    SingleRecordResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: true
+          description: Het record
+
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Foutcode (bijv. NOT_FOUND, VALIDATION_FAILED)
+            message:
+              type: string
+              description: Leesbare foutmelding
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+                required: [message]
+
+tags:
+  - name: Schema
+    description: Collectie-schema beheer (aanmaken, ophalen, bijwerken, verwijderen)
+  - name: Records
+    description: CRUD-operaties op records binnen collecties
+  - name: Collections
+    description: Overzicht van collecties

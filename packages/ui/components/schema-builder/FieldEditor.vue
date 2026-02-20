@@ -66,9 +66,9 @@ function save() {
 
 <template>
   <Teleport to="body">
-    <div class="sb-drawer-overlay" @click.self="emit('cancel')">
-      <div class="sb-drawer">
-        <h3>
+    <div class="sb-drawer-overlay" @click.self="emit('cancel')" @keydown.escape="emit('cancel')">
+      <div class="sb-drawer" role="dialog" aria-modal="true" aria-labelledby="sb-drawer-title">
+        <h3 id="sb-drawer-title">
           {{ isNew ? 'Nieuw veld' : 'Veld bewerken' }} — {{ typeLabel[local.type] || local.type }}
         </h3>
 
@@ -76,8 +76,8 @@ function save() {
           <p v-for="e in errors" :key="e">⚠️ {{ e }}</p>
         </div>
 
-        <label class="sb-drawer__label">Veldnaam</label>
-        <input v-model="local.name" class="sb-drawer__input" placeholder="bijv. voornaam" />
+        <label for="sb-field-name" class="sb-drawer__label">Veldnaam</label>
+        <input id="sb-field-name" v-model="local.name" class="sb-drawer__input" placeholder="bijv. voornaam" />
 
         <div v-if="local.type !== 'lookup'" class="sb-drawer__toggles">
           <label><input type="checkbox" v-model="local.required" /> Verplicht</label>
@@ -85,14 +85,15 @@ function save() {
         </div>
 
         <template v-if="local.type !== 'relation' && local.type !== 'lookup'">
-          <label class="sb-drawer__label">Standaardwaarde</label>
+          <label for="sb-field-default" class="sb-drawer__label">Standaardwaarde</label>
           <input
             v-if="local.type !== 'boolean'"
+            id="sb-field-default"
             v-model="local.default"
             class="sb-drawer__input"
             placeholder="Optioneel"
           />
-          <select v-else v-model="local.default" class="sb-drawer__input">
+          <select v-else id="sb-field-default" v-model="local.default" class="sb-drawer__input">
             <option :value="undefined">Geen</option>
             <option :value="true">Waar</option>
             <option :value="false">Onwaar</option>
@@ -235,6 +236,11 @@ function save() {
 }
 .sb-btn--primary:hover {
   opacity: 0.9;
+}
+.sb-drawer__input:focus-visible,
+.sb-btn:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 /* ─── Mobile < 768px ─── */

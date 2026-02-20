@@ -43,8 +43,17 @@ watch(
 
 <template>
   <div class="de-layout">
+    <!-- Skip link -->
+    <a href="#main-content" class="de-layout__skip-link">Ga naar inhoud</a>
+
     <!-- Hamburger button (mobile only) -->
-    <button class="de-layout__hamburger" @click="toggleSidebar" aria-label="Menu">
+    <button
+      class="de-layout__hamburger"
+      @click="toggleSidebar"
+      aria-label="Menu"
+      :aria-expanded="sidebarOpen"
+      aria-controls="sidebar-nav"
+    >
       <span class="de-layout__hamburger-line" />
       <span class="de-layout__hamburger-line" />
       <span class="de-layout__hamburger-line" />
@@ -53,12 +62,16 @@ watch(
     <!-- Overlay (mobile only) -->
     <div v-if="sidebarOpen" class="de-layout__overlay" @click="closeSidebar" />
 
-    <aside class="de-layout__sidebar" :class="{ 'de-layout__sidebar--open': sidebarOpen }">
+    <aside id="sidebar-nav" class="de-layout__sidebar" :class="{ 'de-layout__sidebar--open': sidebarOpen }">
       <NuxtLink :to="routePrefix" class="de-layout__brand">
         <strong>Data Engine</strong>
       </NuxtLink>
-      <nav class="de-layout__nav">
-        <NuxtLink to="/" class="de-layout__nav-item">📊 Dashboard</NuxtLink>
+      <nav class="de-layout__nav" aria-label="Hoofdnavigatie">
+        <NuxtLink
+          to="/"
+          class="de-layout__nav-item"
+          :aria-current="route.path === '/' ? 'page' : undefined"
+        >📊 Dashboard</NuxtLink>
 
         <div v-if="dynamicCollections?.length" class="de-layout__nav-section">
           <span class="de-layout__nav-label">Collecties</span>
@@ -67,18 +80,27 @@ watch(
             :key="col.name"
             :to="`/collections/${col.name}`"
             class="de-layout__nav-item"
+            :aria-current="route.path === `/collections/${col.name}` ? 'page' : undefined"
           >
             {{ getEmoji(col.name) }} {{ capitalize(col.name) }}
           </NuxtLink>
         </div>
 
-        <NuxtLink to="/builder" class="de-layout__nav-item">🏗️ Schema Builder</NuxtLink>
+        <NuxtLink
+          to="/builder"
+          class="de-layout__nav-item"
+          :aria-current="route.path === '/builder' ? 'page' : undefined"
+        >🏗️ Schema Builder</NuxtLink>
       </nav>
       <div class="de-layout__nav-bottom">
-        <NuxtLink to="/about" class="de-layout__nav-item">ℹ️ Over Volund</NuxtLink>
+        <NuxtLink
+          to="/about"
+          class="de-layout__nav-item"
+          :aria-current="route.path === '/about' ? 'page' : undefined"
+        >ℹ️ Over Volund</NuxtLink>
       </div>
     </aside>
-    <main class="de-layout__main">
+    <main id="main-content" class="de-layout__main">
       <NuxtErrorBoundary>
         <slot />
         <template #error="{ error, clearError }">
@@ -90,6 +112,25 @@ watch(
 </template>
 
 <style scoped>
+/* Skip link */
+.de-layout__skip-link {
+  position: absolute;
+  top: -100%;
+  left: var(--space-s, 10px);
+  z-index: 2000;
+  padding: var(--space-xs, 6px) var(--space-m, 16px);
+  background: var(--intent-action-default, #f97316);
+  color: var(--text-inverse, #000);
+  border-radius: var(--radius-default, 5px);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.de-layout__skip-link:focus {
+  top: var(--space-s, 10px);
+}
+
 .de-layout {
   min-height: 100vh;
   display: flex;
@@ -208,6 +249,14 @@ watch(
   padding: var(--space-l, 28px);
   overflow-y: auto;
   min-width: 0;
+}
+
+/* Focus visible */
+.de-layout__nav-item:focus-visible,
+.de-layout__hamburger:focus-visible,
+.de-layout__brand:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 /* ─── Mobile < 768px ─── */

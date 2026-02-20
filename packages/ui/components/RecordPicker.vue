@@ -25,6 +25,8 @@ const open = ref(false)
 const search = ref('')
 const allRecords = ref<Array<{ id: string; label: string }>>([])
 const loading = ref(false)
+const triggerRef = ref<HTMLElement | null>(null)
+const modalRef = ref<HTMLElement | null>(null)
 
 // Normalize selected values to array
 const selectedIds = computed<string[]>(() => {
@@ -75,6 +77,7 @@ function openModal() {
 
 function closeModal() {
   open.value = false
+  nextTick(() => triggerRef.value?.focus())
 }
 
 function isSelected(id: string) {
@@ -108,16 +111,34 @@ function removeSelected(id: string) {
   }
 }
 
-// Close on Escape
+// Close on Escape + focus trap
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') closeModal()
+  if (e.key === 'Escape') {
+    closeModal()
+    return
+  }
+  if (e.key === 'Tab' && modalRef.value) {
+    const focusable = modalRef.value.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+    if (!focusable.length) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
 }
 </script>
 
 <template>
   <div class="record-picker">
     <!-- Chips display + trigger -->
-    <div class="record-picker__display" @click="openModal">
+    <div ref="triggerRef" class="record-picker__display" tabindex="0" role="combobox" :aria-expanded="open" aria-haspopup="dialog" @click="openModal" @keydown.enter.prevent="openModal" @keydown.space.prevent="openModal">
       <span v-for="rec in selectedRecords" :key="rec.id" class="record-picker__chip">
         {{ rec.label }}
         <button
@@ -143,9 +164,9 @@ function handleKeydown(e: KeyboardEvent) {
         @click.self="closeModal"
         @keydown="handleKeydown"
       >
-        <div class="record-picker__modal" role="dialog" aria-label="Record kiezen">
+        <div ref="modalRef" class="record-picker__modal" role="dialog" aria-modal="true" aria-labelledby="record-picker-title">
           <div class="record-picker__header">
-            <h3 class="record-picker__title">{{ collection }}</h3>
+            <h3 id="record-picker-title" class="record-picker__title">{{ collection }}</h3>
             <button
               type="button"
               class="record-picker__close"
@@ -158,7 +179,9 @@ function handleKeydown(e: KeyboardEvent) {
 
           <!-- Search -->
           <div class="record-picker__search-wrap">
+            <label for="record-picker-search" class="sr-only">Zoeken</label>
             <input
+              id="record-picker-search"
               ref="searchInput"
               v-model="search"
               type="text"
@@ -423,6 +446,27 @@ function handleKeydown(e: KeyboardEvent) {
 
 .record-picker__done-btn:hover {
   background: var(--intent-action-hover);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.record-picker__display:focus-visible,
+.record-picker__item:focus-visible,
+.record-picker__close:focus-visible,
+.record-picker__done-btn:focus-visible,
+.record-picker__chip-remove:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 /* ─── Mobile < 768px ─── */

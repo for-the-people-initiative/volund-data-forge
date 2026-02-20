@@ -137,11 +137,12 @@ const filterableFields = computed(() =>
 
     <div v-if="expanded" class="fb__grid">
       <div v-for="field in filterableFields" :key="field.name" class="fb__field">
-        <label class="fb__label">{{ field.label ?? field.name }}</label>
+        <label :for="`fb-${field.name}`" class="fb__label">{{ field.label ?? field.name }}</label>
 
         <!-- Select -->
         <select
           v-if="field.type === 'select' && field.options?.length"
+          :id="`fb-${field.name}`"
           class="fb__input fb__select"
           :value="getSelectValue(field.name)"
           @change="
@@ -160,6 +161,7 @@ const filterableFields = computed(() =>
         <!-- Boolean -->
         <select
           v-else-if="field.type === 'boolean'"
+          :id="`fb-${field.name}`"
           class="fb__input fb__select"
           :value="getBoolValue(field.name)"
           @change="
@@ -178,7 +180,9 @@ const filterableFields = computed(() =>
 
         <!-- Date -->
         <div v-else-if="field.type === 'date' || field.type === 'datetime'" class="fb__date-range">
+          <label :for="`fb-${field.name}-from`" class="sr-only">{{ field.label ?? field.name }} van</label>
           <input
+            :id="`fb-${field.name}-from`"
             type="date"
             class="fb__input fb__date"
             :value="getDateFrom(field.name)"
@@ -191,8 +195,10 @@ const filterableFields = computed(() =>
               )
             "
           />
-          <span class="fb__date-sep">–</span>
+          <span class="fb__date-sep" aria-hidden="true">–</span>
+          <label :for="`fb-${field.name}-to`" class="sr-only">{{ field.label ?? field.name }} tot</label>
           <input
+            :id="`fb-${field.name}-to`"
             type="date"
             class="fb__input fb__date"
             :value="getDateTo(field.name)"
@@ -210,6 +216,7 @@ const filterableFields = computed(() =>
         <!-- Number -->
         <input
           v-else-if="['integer', 'float', 'number'].includes(field.type)"
+          :id="`fb-${field.name}`"
           type="number"
           class="fb__input"
           :value="getTextValue(field.name)"
@@ -220,6 +227,7 @@ const filterableFields = computed(() =>
         <!-- Text (default) -->
         <input
           v-else
+          :id="`fb-${field.name}`"
           type="text"
           class="fb__input"
           :value="getTextValue(field.name)"
@@ -361,6 +369,25 @@ const filterableFields = computed(() =>
 .fb__date-sep {
   color: var(--text-subtle, #525d8f);
   font-size: 0.75rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.fb__input:focus-visible,
+.fb__toggle:focus-visible,
+.fb__clear:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 /* ─── Mobile < 768px ─── */

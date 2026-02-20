@@ -50,13 +50,13 @@ const typeLabels: Record<string, string> = {
     </div>
     <div ref="listRef" class="sb-fields__list">
       <div v-for="field in localFields" :key="field.name || Math.random()" class="sb-field">
-        <span class="sb-field__handle" title="Sleep om te verplaatsen">≡</span>
+        <span class="sb-field__handle" title="Sleep om te verplaatsen" aria-label="Versleep om volgorde te wijzigen" role="img">≡</span>
         <span class="sb-field__name">{{ field.name || '(naamloos)' }}</span>
         <span class="sb-field__type">{{ typeLabels[field.type] || field.type }}</span>
         <span v-if="field.required" class="sb-field__badge">verplicht</span>
         <div class="sb-field__actions">
-          <button @click="emit('edit', field.name)" title="Bewerken">✎</button>
-          <button @click="emit('remove', field.name)" title="Verwijderen">✕</button>
+          <button @click="emit('edit', field.name)" :aria-label="`Bewerk ${field.name || 'veld'}`">✎</button>
+          <button @click="emit('remove', field.name)" :aria-label="`Verwijder ${field.name || 'veld'}`">✕</button>
         </div>
       </div>
     </div>
@@ -158,6 +158,11 @@ const typeLabels: Record<string, string> = {
 }
 .sb-field__actions button:hover {
   color: var(--text-default, #fff);
+}
+.sb-field__actions button:focus-visible,
+.sb-btn:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 .sb-fields__empty {

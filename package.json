@@ -8,9 +8,11 @@
     "format": "prettier --write \"packages/*/src/**/*.ts\" \"packages/ui/**/*.{ts,vue}\"",
     "typecheck": "tsc --noEmit",
     "build": "pnpm --filter @data-engine/schema run build && pnpm --filter @data-engine/adapter run build && pnpm --filter @data-engine/adapter-knex run build && pnpm --filter @data-engine/api run build && pnpm --filter @data-engine/migration run build && pnpm --filter @data-engine/engine run build",
-    "verify": "pnpm run build && pnpm run typecheck"
+    "verify": "pnpm run build && pnpm run typecheck",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/better-sqlite3": "^7.6.13",
     "@typescript-eslint/eslint-plugin": "^8.56.0",
     "@typescript-eslint/parser": "^8.56.0",

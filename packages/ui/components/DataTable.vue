@@ -281,7 +281,9 @@ function nextPage() {
     <!-- Views & Filter bar -->
     <div class="dt__views-bar">
       <div class="dt__view-switcher">
+        <label for="dt-view-select" class="sr-only">Weergave</label>
         <select
+          id="dt-view-select"
           class="dt__view-select"
           :value="currentViewName"
           @change="switchView(($event.target as HTMLSelectElement).value)"
@@ -303,7 +305,9 @@ function nextPage() {
 
     <!-- Save dialog -->
     <div v-if="showSaveDialog" class="dt__save-dialog">
+      <label for="dt-save-view-name" class="sr-only">Naam van de weergave</label>
       <input
+        id="dt-save-view-name"
         v-model="newViewName"
         class="dt__save-input"
         placeholder="Naam van de weergave..."
@@ -346,11 +350,20 @@ function nextPage() {
       <table class="dt__table">
         <thead>
           <tr>
-            <th v-for="col in columns" :key="col.name" class="dt__th" @click="toggleSort(col.name)">
+            <th
+              v-for="col in columns"
+              :key="col.name"
+              scope="col"
+              class="dt__th"
+              :aria-sort="sortField === col.name ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+              @click="toggleSort(col.name)"
+            >
               <span class="dt__th-label">{{ col.label ?? col.name }}</span>
-              <span class="dt__th-sort">{{ sortIcon(col.name) }}</span>
+              <span class="dt__th-sort" aria-hidden="true">{{ sortIcon(col.name) }}</span>
             </th>
-            <th class="dt__th dt__th--actions"></th>
+            <th scope="col" class="dt__th dt__th--actions">
+              <span class="sr-only">Acties</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -389,7 +402,7 @@ function nextPage() {
             <td class="dt__td dt__td--actions">
               <button
                 class="dt__delete-btn"
-                title="Verwijderen"
+                :aria-label="`Verwijder ${(record as any).name ?? (record as any).title ?? (record as any).label ?? (record as any).id ?? 'record'}`"
                 @click="confirmDelete(record, $event)"
               >
                 🗑️
@@ -407,9 +420,9 @@ function nextPage() {
 
     <!-- Delete confirmation dialog -->
     <Teleport to="body">
-      <div v-if="deleteTarget" class="dt__overlay" @click.self="cancelDelete">
-        <div class="dt__dialog">
-          <p>
+      <div v-if="deleteTarget" class="dt__overlay" @click.self="cancelDelete" @keydown.escape="cancelDelete">
+        <div class="dt__dialog" role="dialog" aria-modal="true" aria-labelledby="dt-delete-title">
+          <p id="dt-delete-title">
             Weet je zeker dat je <strong>{{ deleteTarget.label }}</strong> wilt verwijderen?
           </p>
           <p v-if="deleteError" class="dt__dialog-error">{{ deleteError }}</p>
@@ -861,6 +874,34 @@ function nextPage() {
   100% {
     opacity: 0;
   }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Focus visible */
+.dt__th:focus-visible,
+.dt__delete-btn:focus-visible,
+.dt__page-btn:focus-visible,
+.dt__view-select:focus-visible,
+.dt__view-save:focus-visible,
+.dt__view-delete:focus-visible,
+.dt__save-btn:focus-visible,
+.dt__save-cancel:focus-visible,
+.dt__error-retry:focus-visible,
+.dt__dialog-cancel:focus-visible,
+.dt__dialog-confirm:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 /* ─── Mobile < 768px ─── */

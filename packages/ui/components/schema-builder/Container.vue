@@ -270,6 +270,13 @@ async function handleDelete() {
   font-size: 0.9rem;
 }
 
+.sb-actions__save:focus-visible,
+.sb-actions__delete:focus-visible,
+.sb-preview-toggle:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
+}
+
 @media (max-width: 767px) {
   .sb-container {
     flex-direction: column;

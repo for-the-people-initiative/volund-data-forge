@@ -25,12 +25,17 @@ const emit = defineEmits<{
         :key="col.name"
         class="sb-collections__item"
         :class="{ 'sb-collections__item--active': col.name === activeName }"
+        tabindex="0"
+        role="button"
+        :aria-current="col.name === activeName ? 'true' : undefined"
         @click="emit('select', col.name)"
+        @keydown.enter="emit('select', col.name)"
+        @keydown.space.prevent="emit('select', col.name)"
       >
         <span class="sb-collections__name">{{ col.name }}</span>
         <button
           class="sb-collections__delete"
-          title="Verwijderen"
+          :aria-label="`Verwijder collectie ${col.name}`"
           @click.stop="emit('delete', col.name)"
         >
           ✕
@@ -122,6 +127,12 @@ const emit = defineEmits<{
 }
 .sb-collections__delete:hover {
   color: var(--text-error, #ff6b6b);
+}
+.sb-collections__item:focus-visible,
+.sb-collections__delete:focus-visible,
+.sb-btn:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 .sb-collections__empty {

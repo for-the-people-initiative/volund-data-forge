@@ -27,8 +27,9 @@ function onBlur() {
 
 <template>
   <div class="sb-editor">
-    <label class="sb-editor__label">Collectienaam</label>
+    <label for="sb-collection-name" class="sb-editor__label">Collectienaam</label>
     <input
+      id="sb-collection-name"
       v-model="localName"
       class="sb-editor__input"
       placeholder="bijv. patienten"
@@ -67,6 +68,10 @@ function onBlur() {
 .sb-editor__input:focus {
   outline: none;
   border-color: var(--border-focus, #4a6cf7);
+}
+.sb-editor__input:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 .sb-editor__hint {

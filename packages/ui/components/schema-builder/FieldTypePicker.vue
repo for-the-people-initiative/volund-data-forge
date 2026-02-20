@@ -17,17 +17,18 @@ const types = [
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="sb-picker-overlay" @click.self="emit('close')">
-      <div class="sb-picker">
-        <h3 class="sb-picker__title">Kies veldtype</h3>
-        <div class="sb-picker__grid">
+    <div v-if="open" class="sb-picker-overlay" @click.self="emit('close')" @keydown.escape="emit('close')">
+      <div class="sb-picker" role="dialog" aria-modal="true" aria-labelledby="sb-picker-title">
+        <h3 id="sb-picker-title" class="sb-picker__title">Kies veldtype</h3>
+        <div class="sb-picker__grid" role="listbox" aria-label="Veldtypes">
           <button
             v-for="t in types"
             :key="t.type"
+            role="option"
             class="sb-picker__item"
             @click="emit('select', t.type)"
           >
-            <span class="sb-picker__icon">{{ t.icon }}</span>
+            <span class="sb-picker__icon" aria-hidden="true">{{ t.icon }}</span>
             <span class="sb-picker__label">{{ t.label }}</span>
           </button>
         </div>
@@ -85,6 +86,10 @@ const types = [
 .sb-picker__item:hover {
   border-color: var(--border-focus, #4a6cf7);
   background: var(--surface-interactive, #232a4d);
+}
+.sb-picker__item:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 .sb-picker__icon {

@@ -109,6 +109,13 @@ function validate(): boolean {
     }
   }
   errors.value = errs
+  if (Object.keys(errs).length > 0) {
+    nextTick(() => {
+      const firstErrorField = Object.keys(errs)[0]
+      const el = document.getElementById(fieldId(firstErrorField))
+      el?.focus()
+    })
+  }
   return Object.keys(errs).length === 0
 }
 
@@ -188,6 +195,7 @@ function fieldId(name: string) {
             :id="fieldId(field.name)"
             type="checkbox"
             :checked="!!formData[field.name]"
+            :aria-required="field.required || undefined"
             :aria-invalid="!!errors[field.name]"
             :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
             class="data-form__checkbox"
@@ -200,6 +208,7 @@ function fieldId(name: string) {
           v-else-if="field.type === 'select' && field.options?.length"
           :id="fieldId(field.name)"
           :value="formData[field.name] ?? ''"
+          :aria-required="field.required || undefined"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
           class="data-form__select"
@@ -226,6 +235,7 @@ function fieldId(name: string) {
           type="datetime-local"
           :value="formData[field.name] ?? ''"
           :required="field.required"
+          :aria-required="field.required || undefined"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
           class="data-form__input"
@@ -240,6 +250,7 @@ function fieldId(name: string) {
           step="1"
           :value="formData[field.name] ?? ''"
           :required="field.required"
+          :aria-required="field.required || undefined"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
           class="data-form__input"
@@ -254,6 +265,7 @@ function fieldId(name: string) {
           step="0.01"
           :value="formData[field.name] ?? ''"
           :required="field.required"
+          :aria-required="field.required || undefined"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
           class="data-form__input"
@@ -267,6 +279,7 @@ function fieldId(name: string) {
           type="email"
           :value="formData[field.name] ?? ''"
           :required="field.required"
+          :aria-required="field.required || undefined"
           :placeholder="field.label ?? field.name"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
@@ -281,6 +294,7 @@ function fieldId(name: string) {
           type="text"
           :value="formData[field.name] ?? ''"
           :required="field.required"
+          :aria-required="field.required || undefined"
           :placeholder="field.label ?? field.name"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
@@ -457,6 +471,15 @@ function fieldId(name: string) {
 
 .data-form__btn--secondary:hover {
   background: var(--intent-secondary-hover);
+}
+
+/* Focus visible */
+.data-form__input:focus-visible,
+.data-form__select:focus-visible,
+.data-form__checkbox:focus-visible,
+.data-form__btn:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 @media (max-width: 767px) {
