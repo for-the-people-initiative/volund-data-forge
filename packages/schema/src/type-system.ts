@@ -61,6 +61,12 @@ function registerBuiltins(): void {
     validate: (v) => typeof v === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
     defaultValue: '',
   });
+
+  registerType({
+    name: 'lookup',
+    // Lookup fields are virtual/computed — any value is acceptable (resolved at query time)
+    validate: () => true,
+  });
 }
 
 export function registerType(type: TypeDefinition): void {

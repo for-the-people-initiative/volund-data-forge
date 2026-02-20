@@ -1,5 +1,5 @@
 /**
- * Nitro plugin: Initialize Data Engine via createDataEngine().
+ * Nitro plugin: Initialize Data Engine with persistent SQLite storage.
  * CRM Template: contacts + companies with manyToOne relation.
  */
 import { createDataEngine } from '@data-engine/engine';
@@ -8,6 +8,10 @@ import { createConsoleLogger } from '@data-engine/schema';
 import type { CollectionSchema } from '@data-engine/schema';
 import { setEngine, setMigrationManager } from '../utils/engine';
 import { MigrationManager } from '@data-engine/migration';
+import { existsSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// ─── Seed Schemas ────────────────────────────────────────────────────
 
 const companiesSchema: CollectionSchema = {
   name: 'companies',
@@ -39,69 +43,105 @@ const contactsSchema: CollectionSchema = {
   metadata: { timestamps: true },
 };
 
+// ─── Seed Data ───────────────────────────────────────────────────────
+
+const companiesSeeds = [
+  { name: 'TechNova BV', industry: 'Technologie', website: 'https://technova.nl', city: 'Amsterdam' },
+  { name: 'FinanceFlow', industry: 'Finance', website: 'https://financeflow.nl', city: 'Rotterdam' },
+  { name: 'MediCare Plus', industry: 'Gezondheidszorg', website: 'https://medicareplus.nl', city: 'Utrecht' },
+  { name: 'RetailConnect', industry: 'Retail', website: 'https://retailconnect.nl', city: 'Den Haag' },
+  { name: 'EduForward', industry: 'Onderwijs', website: 'https://eduforward.nl', city: 'Eindhoven' },
+];
+
+const contactsSeeds = [
+  { name: 'Alice van den Berg', email: 'alice@example.com', status: 'active', company: '1' },
+  { name: 'Bob de Vries', email: 'bob@example.com', status: 'inactive', company: '2' },
+  { name: 'Charlie Jansen', email: 'charlie@example.com', status: 'pending', company: '1' },
+  { name: 'Diana Bakker', email: 'diana@example.com', status: 'active', company: '3' },
+  { name: 'Erik Smit', email: 'erik@example.com', status: 'active', company: '4' },
+  { name: 'Femke de Groot', email: 'femke@example.com', status: 'pending', company: '5' },
+];
+
+// ─── Plugin ──────────────────────────────────────────────────────────
+
 let instance: DataEngineInstance | null = null;
 
 export default defineNitroPlugin(async (nitroApp) => {
   const logger = createConsoleLogger();
-  logger.info('[data-engine] Initializing CRM template...');
+  logger.info('[data-engine] Initializing with persistent storage...');
 
-  // 1. Bootstrap engine
+  // 1. Resolve data directory & ensure it exists
+  const dataDir = process.env.DATA_DIR || resolve(process.cwd(), 'data');
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
+    logger.info(`[data-engine] Created data directory: ${dataDir}`);
+  }
+  const dbPath = resolve(dataDir, 'volund.db');
+  logger.info(`[data-engine] Database: ${dbPath}`);
+
+  // 2. Bootstrap engine with file-based SQLite
   instance = await createDataEngine({
     database: {
       client: 'better-sqlite3',
-      connection: { filename: ':memory:' },
+      connection: { filename: dbPath },
       primaryKey: 'auto-increment',
     },
     options: { logger },
   });
 
-  const { engine, registry, adapter, apiRouter } = instance;
+  const { engine, registry, adapter, apiRouter, migrationManager } = instance;
 
-  // 2. Initialize migration manager & create schemas via it
-  const migrationManager = new MigrationManager(registry, adapter, logger);
-  await migrationManager.init();
+  // 3. Restore persisted schemas (from _schema_versions table)
+  const persistedNames = await migrationManager.getPersistedCollectionNames();
+  const internalCollections = new Set(['_schema_versions']);
+  const restoredCollections = new Set<string>();
 
+  for (const name of persistedNames) {
+    if (internalCollections.has(name)) continue;
+    const snapshot = await migrationManager.getPersistedSnapshot(name);
+    if (snapshot) {
+      // applySchema will detect no diff → registers in registry without DDL
+      await migrationManager.applySchema(snapshot);
+      restoredCollections.add(name);
+      logger.info(`[data-engine] Restored schema: ${name}`);
+    }
+  }
+
+  // 4. Apply default schemas (companies + contacts) — idempotent via migration manager
   await migrationManager.applySchema(companiesSchema);
-  logger.info('[data-engine] Schema "companies" registered + table created');
+  if (!restoredCollections.has('companies')) {
+    logger.info('[data-engine] Schema "companies" created');
+  }
 
   await migrationManager.applySchema(contactsSchema);
-  logger.info('[data-engine] Schema "contacts" registered + table created');
-
-  // 4. Seed companies
-  const companiesSeeds = [
-    { name: 'TechNova BV', industry: 'Technologie', website: 'https://technova.nl', city: 'Amsterdam' },
-    { name: 'FinanceFlow', industry: 'Finance', website: 'https://financeflow.nl', city: 'Rotterdam' },
-    { name: 'MediCare Plus', industry: 'Gezondheidszorg', website: 'https://medicareplus.nl', city: 'Utrecht' },
-    { name: 'RetailConnect', industry: 'Retail', website: 'https://retailconnect.nl', city: 'Den Haag' },
-    { name: 'EduForward', industry: 'Onderwijs', website: 'https://eduforward.nl', city: 'Eindhoven' },
-  ];
-
-  for (const seed of companiesSeeds) {
-    await adapter.create('companies', seed);
+  if (!restoredCollections.has('contacts')) {
+    logger.info('[data-engine] Schema "contacts" created');
   }
-  logger.info(`[data-engine] Seeded ${companiesSeeds.length} companies`);
 
-  // 5. Seed contacts (with company relation)
-  const contactsSeeds = [
-    { name: 'Alice van den Berg', email: 'alice@example.com', status: 'active', company: '1' },
-    { name: 'Bob de Vries', email: 'bob@example.com', status: 'inactive', company: '2' },
-    { name: 'Charlie Jansen', email: 'charlie@example.com', status: 'pending', company: '1' },
-    { name: 'Diana Bakker', email: 'diana@example.com', status: 'active', company: '3' },
-    { name: 'Erik Smit', email: 'erik@example.com', status: 'active', company: '4' },
-    { name: 'Femke de Groot', email: 'femke@example.com', status: 'pending', company: '5' },
-  ];
+  // 5. Conditional seeding — only if tables are empty
+  const existingCompanies = await adapter.findMany('companies', { limit: 1 });
+  if (existingCompanies.length === 0) {
+    for (const seed of companiesSeeds) {
+      await adapter.create('companies', seed);
+    }
+    logger.info(`[data-engine] Seeded ${companiesSeeds.length} companies`);
 
-  for (const seed of contactsSeeds) {
-    await adapter.create('contacts', seed);
+    // Seed contacts only if companies were also seeded (they depend on company IDs)
+    const existingContacts = await adapter.findMany('contacts', { limit: 1 });
+    if (existingContacts.length === 0) {
+      for (const seed of contactsSeeds) {
+        await adapter.create('contacts', seed);
+      }
+      logger.info(`[data-engine] Seeded ${contactsSeeds.length} contacts`);
+    }
+  } else {
+    logger.info('[data-engine] Data already exists, skipping seed');
   }
-  logger.info(`[data-engine] Seeded ${contactsSeeds.length} contacts`);
 
-  // 6. Export migration manager
+  // 6. Export engine + managers for server routes
   setMigrationManager(migrationManager);
-
-  // 7. Export engine + apiRouter for server routes
   setEngine(engine, registry, adapter, apiRouter);
-  logger.info('[data-engine] ✅ CRM Ready');
+  logger.info('[data-engine] ✅ CRM Ready (persistent)');
 
   // 7. Cleanup on shutdown
   nitroApp.hooks.hook('close', async () => {

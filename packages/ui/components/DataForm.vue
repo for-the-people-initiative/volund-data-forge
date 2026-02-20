@@ -82,6 +82,7 @@ watch(fields, async (f) => {
 function validate(): boolean {
   const errs: Record<string, string> = {}
   for (const field of fields.value) {
+    if (field.type === 'lookup') continue // Lookup fields are computed, skip validation
     const val = formData.value[field.name]
     // Required check
     if (field.required && (val === '' || val === null || val === undefined)) {
@@ -109,9 +110,10 @@ async function handleSubmit() {
   submitting.value = true
   serverError.value = ''
 
-  // Build payload (exclude system fields)
+  // Build payload (exclude system fields and lookup fields)
   const payload: Record<string, unknown> = {}
   for (const field of fields.value) {
+    if (field.type === 'lookup') continue // Lookup fields are computed, not sent
     let val = formData.value[field.name]
     if (field.type === 'integer' && val !== '' && val !== null) val = parseInt(String(val), 10)
     if (field.type === 'float' && val !== '' && val !== null) val = parseFloat(String(val))
@@ -177,8 +179,13 @@ function fieldId(name: string) {
           <span v-if="field.required" class="data-form__required" aria-label="verplicht">*</span>
         </label>
 
+        <!-- Lookup: read-only display -->
+        <div v-if="field.type === 'lookup'" class="data-form__lookup">
+          {{ formData[field.name] ?? '—' }}
+        </div>
+
         <!-- Boolean: toggle/checkbox -->
-        <div v-if="field.type === 'boolean'" class="data-form__toggle-wrap">
+        <div v-else-if="field.type === 'boolean'" class="data-form__toggle-wrap">
           <input
             :id="fieldId(field.name)"
             type="checkbox"
@@ -204,23 +211,15 @@ function fieldId(name: string) {
           <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
         </select>
 
-        <!-- Relation: select from related collection -->
-        <select
+        <!-- Relation: RecordPicker -->
+        <RecordPicker
           v-else-if="field.type === 'relation'"
-          :id="fieldId(field.name)"
-          :value="formData[field.name] ?? ''"
-          :aria-invalid="!!errors[field.name]"
-          :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-          class="data-form__select"
-          @change="formData[field.name] = ($event.target as HTMLSelectElement).value"
-        >
-          <option value="" disabled>Kies {{ field.relation?.target ?? field.name }}...</option>
-          <option
-            v-for="opt in relationOptions[field.name]"
-            :key="opt.id"
-            :value="opt.id"
-          >{{ opt.label }}</option>
-        </select>
+          :collection="field.relation?.target ?? field.name"
+          :model-value="(formData[field.name] as string | string[] | null) ?? null"
+          :multiple="field.relation?.type === 'manyToMany'"
+          :placeholder="`Kies ${field.relation?.target ?? field.name}...`"
+          @update:model-value="formData[field.name] = $event"
+        />
 
         <!-- Datetime -->
         <input
@@ -396,6 +395,16 @@ function fieldId(name: string) {
   height: 18px;
   accent-color: var(--intent-action-default);
   cursor: pointer;
+}
+
+.data-form__lookup {
+  padding: var(--space-xs) var(--space-s);
+  background: var(--surface-muted, #060813);
+  border: 1px solid var(--border-subtle, #1a2244);
+  border-radius: var(--radius-default);
+  color: var(--text-secondary, #9ea5c2);
+  font-size: 0.9375rem;
+  font-style: italic;
 }
 
 .data-form__toggle-wrap {

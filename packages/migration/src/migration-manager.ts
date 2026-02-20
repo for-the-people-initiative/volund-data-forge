@@ -82,8 +82,11 @@ export class MigrationManager {
     // Diff against current
     const diff = diffSchemas(currentSnapshot, schema);
 
-    // No changes — no-op
+    // No changes — no-op (still register in case registry was cold-started)
     if (diff.changes.length === 0) {
+      if (!this.registry.has(schema.name)) {
+        await this.registry.register(schema, { force: true });
+      }
       return {
         success: true,
         collection: schema.name,
@@ -154,6 +157,16 @@ export class MigrationManager {
       throw new MigrationError(`Collection "${collection}" not found in registry`);
     }
     return structuredClone(schema);
+  }
+
+  /** Get all persisted collection names from version tracker */
+  async getPersistedCollectionNames(): Promise<string[]> {
+    return this.versionTracker.getAllCollectionNames();
+  }
+
+  /** Get latest persisted schema snapshot for a collection */
+  async getPersistedSnapshot(collection: string): Promise<CollectionSchema | null> {
+    return this.versionTracker.getLatestSnapshot(collection);
   }
 
   exportAll(): CollectionSchema[] {

@@ -22,6 +22,8 @@ export interface FieldDefinition {
   options?: string[];
   /** For 'relation' type */
   relation?: RelationDefinition;
+  /** For 'lookup' type — fetch a field value via an existing relation */
+  lookup?: { relation: string; field: string };
 }
 
 /** Relation definition */

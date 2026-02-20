@@ -37,6 +37,9 @@ export function compileValidator(
 
     // Validate defined fields
     for (const [name, field] of fieldMap) {
+      // Skip virtual/computed fields (lookup)
+      if (field.type === 'lookup') continue;
+
       const value = data[name];
       const path = name;
 

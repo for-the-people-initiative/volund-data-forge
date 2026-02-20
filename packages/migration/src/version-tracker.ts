@@ -66,6 +66,15 @@ export class VersionTracker {
     return row ? this.toSchemaVersion(row) : null;
   }
 
+  /** Get all tracked collection names */
+  async getAllCollectionNames(): Promise<string[]> {
+    const rows = await this.adapter.findMany(VERSIONS_TABLE, {
+      sort: [{ field: 'collection_name', direction: 'asc' }],
+    });
+    const names = new Set(rows.map(r => String(r['collection_name'])));
+    return [...names];
+  }
+
   /** Get the latest version number (0 if none) */
   async getLatestVersion(collection: string): Promise<number> {
     const rows = await this.adapter.findMany(VERSIONS_TABLE, {

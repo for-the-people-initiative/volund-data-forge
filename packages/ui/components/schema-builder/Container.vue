@@ -229,6 +229,7 @@ function onSaveField(field: FieldDefinition) {
   const cleaned = { ...field, name: field.name.trim() }
   if (cleaned.type !== 'select') delete cleaned.options
   if (cleaned.type !== 'relation') delete cleaned.relation
+  if (cleaned.type !== 'lookup') delete cleaned.lookup
   if (!cleaned.default && cleaned.default !== false) delete cleaned.default
 
   if (editingField.value?.isNew) {
@@ -388,6 +389,8 @@ onMounted(() => {
       :available-targets="availableTargets"
       :errors="validationErrors"
       :active-collection-name="activeCollectionName ?? ''"
+      :collection-fields="activeCollection?.fields ?? []"
+      :all-schemas="collections"
       @save="onSaveField"
       @cancel="onCancelEdit"
     />

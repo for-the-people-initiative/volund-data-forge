@@ -97,6 +97,8 @@ export class KnexAdapter implements DatabaseAdapter {
     this.logger?.debug('createCollection', { collection: name, fieldCount: fields.length });
     try {
       await db.transaction(async (trx) => {
+        // Filter out virtual field types (lookup fields have no DB column)
+        const dbFields = fields.filter(f => f.type !== 'lookup');
         await trx.schema.createTable(name, (table) => {
           // System columns — PK based on strategy
           if (this.primaryKeyStrategy === 'auto-increment') {
@@ -113,7 +115,7 @@ export class KnexAdapter implements DatabaseAdapter {
           table.timestamp('updated_at', { useTz: true }).defaultTo(db.fn.now()).notNullable();
 
           // User-defined fields
-          for (const field of fields) {
+          for (const field of dbFields) {
             const col = applyFieldToTable(table, field);
 
             // Handle relation FK constraints
@@ -127,7 +129,7 @@ export class KnexAdapter implements DatabaseAdapter {
         });
 
         // Create junction tables for manyToMany relations
-        for (const field of fields) {
+        for (const field of dbFields) {
           if (field.type === 'relation' && field.relation?.type === 'manyToMany') {
             const junctionTable = field.relation.junctionTable ?? `${name}_${field.relation.target}`;
             await trx.schema.createTable(junctionTable, (table) => {
@@ -147,6 +149,8 @@ export class KnexAdapter implements DatabaseAdapter {
   }
 
   async addField(collection: string, field: FieldDefinition): Promise<void> {
+    // Lookup fields are virtual — no DB column needed
+    if (field.type === 'lookup') return;
     const db = this.db();
     this.logger?.debug('addField', { collection, field: field.name });
     try {

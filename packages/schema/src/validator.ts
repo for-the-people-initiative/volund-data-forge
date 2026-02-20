@@ -81,6 +81,25 @@ export function validateSchema(
       // Self-referential is allowed (circular)
     }
 
+    // Lookup validation
+    if (field.type === 'lookup') {
+      if (!field.lookup) {
+        errors.push({
+          path: `${path}.lookup`,
+          message: 'Lookup field must have a lookup definition',
+        });
+      } else {
+        // Verify the relation field exists in this schema
+        const relField = schema.fields.find(f => f.name === field.lookup!.relation);
+        if (!relField || relField.type !== 'relation') {
+          errors.push({
+            path: `${path}.lookup.relation`,
+            message: `Lookup relation "${field.lookup.relation}" is not a relation field in this collection`,
+          });
+        }
+      }
+    }
+
     // Select options
     if (field.type === 'select' && (!field.options || field.options.length === 0)) {
       errors.push({

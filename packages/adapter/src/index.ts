@@ -11,7 +11,7 @@ export type { FieldDefinition, RelationType };
 
 // ─── Field Type System ───────────────────────────────────────────────
 
-export type FieldType = 'text' | 'integer' | 'float' | 'boolean' | 'datetime' | 'json' | 'relation' | 'select' | 'email';
+export type FieldType = 'text' | 'integer' | 'float' | 'boolean' | 'datetime' | 'json' | 'relation' | 'select' | 'email' | 'lookup';
 
 // ─── Field Changes (for alterField) ─────────────────────────────────
 

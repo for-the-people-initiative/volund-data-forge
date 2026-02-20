@@ -2,8 +2,9 @@
 /**
  * Schema-driven data table component.
  * Renders columns and rows based on the collection schema.
- * Supports sorting, pagination, filtering, and type-aware rendering.
+ * Supports sorting, pagination, filtering (server-side), and saved views.
  */
+import type { FilterValue } from './FilterBar.vue'
 
 const props = defineProps<{
   collection: string
@@ -15,17 +16,122 @@ const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
 const { fields, status: schemaStatus } = useSchema(toRef(() => props.collection))
 
-// Table state
-const searchQuery = ref('')
+// ─── Table state ────────────────────────────────────────────
+const filters = ref<Record<string, FilterValue>>({})
 const sortField = ref<string | null>(null)
 const sortDir = ref<'asc' | 'desc'>('asc')
 const currentPage = ref(1)
 const effectivePageSize = computed(() => props.pageSize ?? 20)
 
-// Fetch records
-const { data: response, status: dataStatus } = await useFetch(
-  () => `${baseUrl}/collections/${props.collection}`,
-  { key: `records-${props.collection}` },
+// ─── Saved Views ────────────────────────────────────────────
+interface SavedView {
+  name: string
+  filters: Record<string, FilterValue>
+  sortField: string | null
+  sortDir: 'asc' | 'desc'
+}
+
+const VIEWS_KEY = computed(() => `data-engine-views-${props.collection}`)
+const savedViews = ref<SavedView[]>([])
+const currentViewName = ref<string>('Standaard')
+const showSaveDialog = ref(false)
+const newViewName = ref('')
+
+function loadViews() {
+  if (import.meta.server) return
+  try {
+    const raw = localStorage.getItem(VIEWS_KEY.value)
+    savedViews.value = raw ? JSON.parse(raw) : []
+  } catch { savedViews.value = [] }
+}
+
+function persistViews() {
+  if (import.meta.server) return
+  localStorage.setItem(VIEWS_KEY.value, JSON.stringify(savedViews.value))
+}
+
+function saveView() {
+  const name = newViewName.value.trim()
+  if (!name) return
+  const existing = savedViews.value.findIndex(v => v.name === name)
+  const view: SavedView = {
+    name,
+    filters: { ...filters.value },
+    sortField: sortField.value,
+    sortDir: sortDir.value,
+  }
+  if (existing >= 0) {
+    savedViews.value[existing] = view
+  } else {
+    savedViews.value.push(view)
+  }
+  persistViews()
+  currentViewName.value = name
+  showSaveDialog.value = false
+  newViewName.value = ''
+}
+
+function switchView(name: string) {
+  currentViewName.value = name
+  if (name === 'Standaard') {
+    filters.value = {}
+    sortField.value = null
+    sortDir.value = 'asc'
+  } else {
+    const view = savedViews.value.find(v => v.name === name)
+    if (view) {
+      filters.value = { ...view.filters }
+      sortField.value = view.sortField
+      sortDir.value = view.sortDir
+    }
+  }
+  currentPage.value = 1
+}
+
+function deleteView(name: string) {
+  savedViews.value = savedViews.value.filter(v => v.name !== name)
+  persistViews()
+  if (currentViewName.value === name) {
+    switchView('Standaard')
+  }
+}
+
+onMounted(() => loadViews())
+
+// ─── Build API URL with filter/sort params ──────────────────
+const apiUrl = computed(() => {
+  const params = new URLSearchParams()
+
+  // Filters
+  for (const [field, fv] of Object.entries(filters.value)) {
+    if (fv.operator === 'like') {
+      params.set(`filter[${field}][${fv.operator}]`, String(fv.value))
+    } else if (fv.operator === 'between') {
+      params.set(`filter[${field}][between]`, (fv.value as [string, string]).join(','))
+    } else if (fv.operator === 'eq') {
+      params.set(`filter[${field}]`, String(fv.value))
+    } else {
+      params.set(`filter[${field}][${fv.operator}]`, String(fv.value))
+    }
+  }
+
+  // Sort
+  if (sortField.value) {
+    params.set('sort', sortDir.value === 'desc' ? `-${sortField.value}` : sortField.value)
+  }
+
+  // Pagination
+  params.set('limit', String(effectivePageSize.value))
+  params.set('offset', String((currentPage.value - 1) * effectivePageSize.value))
+
+  const qs = params.toString()
+  return `${baseUrl}/collections/${props.collection}${qs ? `?${qs}` : ''}`
+})
+
+// ─── Fetch records (reactive to apiUrl) ─────────────────────
+const { data: response, status: dataStatus, refresh } = await useFetch(
+  apiUrl,
+  { key: `records-${props.collection}`, watch: [apiUrl] },
 )
 
 const records = computed(() => {
@@ -37,61 +143,46 @@ const totalRecords = computed(() => {
   return (response.value as any)?.meta?.total ?? records.value.length
 })
 
-// Filter records client-side on text fields
-const filteredRecords = computed(() => {
-  const q = searchQuery.value.toLowerCase().trim()
-  if (!q) return records.value
-
-  const textFields = fields.value
-    .filter(f => ['text', 'string', 'email', 'url', 'slug'].includes(f.type))
-    .map(f => f.name)
-
-  return records.value.filter((record: any) =>
-    textFields.some(field => {
-      const val = record[field]
-      return val && String(val).toLowerCase().includes(q)
-    })
-  )
-})
-
-// Sort filtered records client-side
-const sortedRecords = computed(() => {
-  const data = [...filteredRecords.value]
-  if (!sortField.value) return data
-
-  const field = sortField.value
-  const dir = sortDir.value === 'asc' ? 1 : -1
-
-  return data.sort((a: any, b: any) => {
-    const va = a[field] ?? ''
-    const vb = b[field] ?? ''
-    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * dir
-    return String(va).localeCompare(String(vb)) * dir
-  })
-})
-
-// Paginated (client-side for now since API may not support it fully)
-const paginatedRecords = computed(() => {
-  const start = (currentPage.value - 1) * effectivePageSize.value
-  return sortedRecords.value.slice(start, start + effectivePageSize.value)
-})
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRecords.value.length / effectivePageSize.value)))
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / effectivePageSize.value)))
 
 const isLoading = computed(() => schemaStatus.value === 'pending' || dataStatus.value === 'pending')
 
-// Visible columns (exclude hidden system fields)
+function onFiltersUpdate(newFilters: Record<string, FilterValue>) {
+  filters.value = newFilters
+  currentPage.value = 1
+}
+
+// ─── Visible columns ───────────────────────────────────────
 const columns = computed(() => {
   return fields.value.filter(f => !['id', 'created_at', 'updated_at'].includes(f.name))
 })
 
+// ─── Filterable fields (with options for select) ────────────
+const filterFields = computed(() => {
+  return fields.value
+    .filter(f => !['id', 'created_at', 'updated_at'].includes(f.name))
+    .map(f => ({
+      name: f.name,
+      type: f.type,
+      label: f.label,
+      options: (f as any).options,
+    }))
+})
+
 function toggleSort(fieldName: string) {
   if (sortField.value === fieldName) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+    if (sortDir.value === 'asc') {
+      sortDir.value = 'desc'
+    } else {
+      // Third click: clear sort
+      sortField.value = null
+      sortDir.value = 'asc'
+    }
   } else {
     sortField.value = fieldName
     sortDir.value = 'asc'
   }
+  currentPage.value = 1
 }
 
 function sortIcon(fieldName: string) {
@@ -139,16 +230,48 @@ function nextPage() {
 
 <template>
   <div class="dt">
-    <!-- Search bar -->
-    <div class="dt__toolbar">
-      <input
-        v-model="searchQuery"
-        type="search"
-        class="dt__search"
-        placeholder="Zoeken..."
-        @input="currentPage = 1"
-      />
+    <!-- Views & Filter bar -->
+    <div class="dt__views-bar">
+      <div class="dt__view-switcher">
+        <select
+          class="dt__view-select"
+          :value="currentViewName"
+          @change="switchView(($event.target as HTMLSelectElement).value)"
+        >
+          <option value="Standaard">Standaard</option>
+          <option v-for="v in savedViews" :key="v.name" :value="v.name">{{ v.name }}</option>
+        </select>
+        <button
+          v-if="currentViewName !== 'Standaard'"
+          class="dt__view-delete"
+          title="Verwijder weergave"
+          @click="deleteView(currentViewName)"
+        >✕</button>
+      </div>
+      <button class="dt__view-save" @click="showSaveDialog = true">
+        Opslaan als weergave
+      </button>
     </div>
+
+    <!-- Save dialog -->
+    <div v-if="showSaveDialog" class="dt__save-dialog">
+      <input
+        v-model="newViewName"
+        class="dt__save-input"
+        placeholder="Naam van de weergave..."
+        @keyup.enter="saveView"
+      />
+      <button class="dt__save-btn" :disabled="!newViewName.trim()" @click="saveView">Opslaan</button>
+      <button class="dt__save-cancel" @click="showSaveDialog = false">Annuleren</button>
+    </div>
+
+    <!-- FilterBar -->
+    <FilterBar
+      :fields="filterFields"
+      :model-value="filters"
+      @update:model-value="onFiltersUpdate"
+      @clear="filters = {}; currentPage = 1"
+    />
 
     <!-- Loading state -->
     <div v-if="isLoading" class="dt__loading">
@@ -157,7 +280,7 @@ function nextPage() {
     </div>
 
     <!-- Table -->
-    <div v-else-if="paginatedRecords.length" class="dt__scroll">
+    <div v-else-if="records.length" class="dt__scroll">
       <table class="dt__table">
         <thead>
           <tr>
@@ -174,7 +297,7 @@ function nextPage() {
         </thead>
         <tbody>
           <tr
-            v-for="(record, i) in paginatedRecords"
+            v-for="(record, i) in records"
             :key="(record as any).id ?? i"
             class="dt__row"
             @click="goToRecord(record)"
@@ -213,13 +336,13 @@ function nextPage() {
     </div>
 
     <!-- Pagination -->
-    <div v-if="!isLoading && filteredRecords.length > 0" class="dt__pagination">
+    <div v-if="!isLoading && totalRecords > 0" class="dt__pagination">
       <button class="dt__page-btn" :disabled="currentPage <= 1" @click="prevPage">
         ← Vorige
       </button>
       <span class="dt__page-info">
         Pagina {{ currentPage }} van {{ totalPages }}
-        <span class="dt__page-total">({{ filteredRecords.length }} records)</span>
+        <span class="dt__page-total">({{ totalRecords }} records)</span>
       </span>
       <button class="dt__page-btn" :disabled="currentPage >= totalPages" @click="nextPage">
         Volgende →
@@ -235,30 +358,110 @@ function nextPage() {
   gap: var(--space-m, 16px);
 }
 
-.dt__toolbar {
+.dt__views-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-s, 10px);
 }
 
-.dt__search {
-  width: 100%;
-  max-width: 320px;
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
+.dt__view-switcher {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs, 2px);
+}
+
+.dt__view-select {
+  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
   background: var(--surface-panel, #11162d);
   border: 1px solid var(--border-default, #242e5c);
   border-radius: var(--radius-default, 5px);
   color: var(--text-default, #fff);
-  font-size: 0.875rem;
-  outline: none;
-  transition: border-color 0.15s;
+  font-size: 0.8125rem;
+  height: 30px;
+  cursor: pointer;
+  appearance: none;
 }
 
-.dt__search::placeholder {
+.dt__view-delete {
+  background: none;
+  border: none;
   color: var(--text-subtle, #525d8f);
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 4px;
 }
 
-.dt__search:focus {
+.dt__view-delete:hover {
+  color: var(--feedback-error, #ef4444);
+}
+
+.dt__view-save {
+  padding: var(--space-3xs, 2px) var(--space-s, 10px);
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  color: var(--text-secondary, #9ea5c2);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  height: 30px;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.dt__view-save:hover {
+  border-color: var(--intent-action-default, #f97316);
+  color: var(--text-default, #fff);
+}
+
+.dt__save-dialog {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs, 6px);
+  padding: var(--space-xs, 6px) var(--space-s, 10px);
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-rounded, 8px);
+}
+
+.dt__save-input {
+  flex: 1;
+  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
+  background: var(--surface-muted, #060813);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  color: var(--text-default, #fff);
+  font-size: 0.8125rem;
+  height: 28px;
+  outline: none;
+}
+
+.dt__save-input:focus {
   border-color: var(--border-focus, #f97316);
+}
+
+.dt__save-btn {
+  padding: var(--space-3xs, 2px) var(--space-s, 10px);
+  background: var(--intent-action-default, #f97316);
+  border: none;
+  border-radius: var(--radius-default, 5px);
+  color: #fff;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  height: 28px;
+}
+
+.dt__save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dt__save-cancel {
+  background: none;
+  border: none;
+  color: var(--text-subtle, #525d8f);
+  font-size: 0.8125rem;
+  cursor: pointer;
 }
 
 .dt__scroll {
