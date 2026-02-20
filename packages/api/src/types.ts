@@ -49,7 +49,7 @@ export interface ApiErrorResponse {
 
 export type ApiResponse = {
   status: number;
-  body: ApiSuccessListResponse | ApiSuccessSingleResponse | ApiErrorResponse;
+  body: ApiSuccessListResponse | ApiSuccessSingleResponse | ApiErrorResponse | null;
   headers?: Record<string, string>;
 };
 

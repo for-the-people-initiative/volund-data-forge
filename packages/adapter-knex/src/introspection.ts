@@ -11,7 +11,9 @@ import { nativeTypeToFieldType } from './type-mapping.js';
 const ENGINE_PREFIX = '_de_';
 
 function isSQLite(knex: Knex): boolean {
-  const client = (knex as any).client?.config?.client ?? '';
+  // knex.client is typed as `any` in Knex's own type definitions
+  const knexClient: { config?: { client?: string } } | undefined = knex.client;
+  const client = knexClient?.config?.client ?? '';
   return client === 'sqlite3' || client === 'better-sqlite3';
 }
 
@@ -52,7 +54,7 @@ async function getTablesSQLite(knex: Knex): Promise<string[]> {
 
 async function getColumnsSQLite(knex: Knex, table: string): Promise<ColumnInfo[]> {
   const rows = await knex.raw(`PRAGMA table_info(\`${table}\`)`);
-  const cols: any[] = Array.isArray(rows) ? rows : (rows as any).rows ?? [];
+  const cols: Record<string, unknown>[] = Array.isArray(rows) ? rows : (rows as { rows?: Record<string, unknown>[] }).rows ?? [];
   return cols.map((r: any) => ({
     name: r.name,
     type: nativeTypeToFieldType(r.type?.toLowerCase() ?? 'text'),
