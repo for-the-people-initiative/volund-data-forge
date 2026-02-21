@@ -190,6 +190,25 @@ describe('KnexAdapter DDL + Introspection', () => {
     expect(rows[0]).not.toHaveProperty('subtitle');
   });
 
+  it('dropCollection drops the table', async () => {
+    // Create a temporary collection
+    await adapter.createCollection('temp_drop_test', [
+      { name: 'name', type: 'text' },
+    ]);
+    // Verify it exists by inserting
+    await adapter.create('temp_drop_test', { name: 'test' });
+
+    // Drop it
+    await adapter.dropCollection('temp_drop_test');
+
+    // Verify it's gone — inserting should throw
+    await expect(adapter.create('temp_drop_test', { name: 'test' })).rejects.toThrow();
+  });
+
+  it('dropCollection on non-existent table does not throw', async () => {
+    await expect(adapter.dropCollection('nonexistent_table')).resolves.toBeUndefined();
+  });
+
   it('all field types create valid columns', async () => {
     // Create a collection with every supported type
     const allTypesSchema: FieldDefinition[] = [

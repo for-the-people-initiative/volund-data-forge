@@ -157,6 +157,7 @@ export interface DatabaseAdapter {
 
   // Schema operations (runtime DDL)
   createCollection(name: string, fields: FieldDefinition[]): Promise<void>
+  dropCollection(name: string): Promise<void>
   addField(collection: string, field: FieldDefinition): Promise<void>
   removeField(collection: string, fieldName: string): Promise<void>
   alterField(collection: string, fieldName: string, changes: FieldChanges): Promise<void>

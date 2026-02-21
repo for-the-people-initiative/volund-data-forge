@@ -3,7 +3,7 @@
  * PUT    /api/schema/:collection — update a collection schema (with migration)
  * DELETE /api/schema/:collection — remove a collection from registry
  */
-import { getRegistry, getMigrationManager, waitForEngine } from '../../utils/engine'
+import { getRegistry, getMigrationManager, getAdapter, waitForEngine } from '../../utils/engine'
 import {
   validateSchema,
   validateCollectionName,
@@ -108,7 +108,8 @@ export default defineEventHandler(async (event) => {
 
     try {
       await registry.remove(collection)
-      // Note: table drop not yet supported by adapter — schema removed from registry only
+      const adapter = getAdapter()
+      await adapter.dropCollection(collection)
       setResponseStatus(event, 204)
       return null
     } catch (err) {

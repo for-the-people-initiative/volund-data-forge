@@ -41,6 +41,9 @@ export { compileValidator } from './data-validator.js'
 // UUID v7 Generator
 export { generateUUIDv7 } from './uuid.js'
 
+// Formula Evaluator (computed fields)
+export { evaluateFormula, applyComputedFields, applyComputedFieldsToMany } from './formula.js'
+
 // Error Classes
 export {
   DataEngineError,

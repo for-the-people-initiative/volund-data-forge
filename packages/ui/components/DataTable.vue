@@ -453,6 +453,15 @@ function formatValue(value: unknown, type: string): string {
   }
 }
 
+function isImagePath(path: string): boolean {
+  const ext = path.substring(path.lastIndexOf('.')).toLowerCase()
+  return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(ext)
+}
+
+function fileNameFromPath(path: string): string {
+  return path.split('/').pop() || 'bestand'
+}
+
 function prevPage() {
   if (currentPage.value > 1) currentPage.value--
 }
@@ -637,6 +646,19 @@ function nextPage() {
                 <span v-else-if="col.type === 'relation'" class="dt__relation">
                   {{ (record as any)[col.name] ?? '—' }}
                 </span>
+                <!-- File -->
+                <span v-else-if="col.type === 'file' && (record as any)[col.name]" class="dt__file" @click.stop>
+                  <img
+                    v-if="isImagePath(String((record as any)[col.name]))"
+                    :src="String((record as any)[col.name])"
+                    :alt="fileNameFromPath(String((record as any)[col.name]))"
+                    class="dt__file-thumb"
+                  />
+                  <a v-else :href="String((record as any)[col.name])" target="_blank" class="dt__file-link">
+                    📎 {{ fileNameFromPath(String((record as any)[col.name])) }}
+                  </a>
+                </span>
+                <span v-else-if="col.type === 'file'">—</span>
                 <!-- Default -->
                 <span v-else>
                   {{ formatValue((record as any)[col.name], col.type) }}
@@ -988,6 +1010,25 @@ function nextPage() {
 
 .dt__relation {
   color: var(--text-link, #fb923c);
+}
+
+.dt__file-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border-subtle, #1a2244);
+  vertical-align: middle;
+}
+
+.dt__file-link {
+  color: var(--text-link, #fb923c);
+  text-decoration: none;
+  font-size: 0.8125rem;
+}
+
+.dt__file-link:hover {
+  text-decoration: underline;
 }
 
 /* ─── Inline editing ─── */

@@ -88,10 +88,54 @@ watch(
   { immediate: true },
 )
 
+// ─── File upload state ──────────────────────────────────────
+const fileUploading = ref<Record<string, boolean>>({})
+const fileMeta = ref<Record<string, { filename: string; mimetype: string }>>({})
+
+async function handleFileUpload(fieldName: string, event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+
+  fileUploading.value[fieldName] = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const result = await $fetch<{ path: string; filename: string; mimetype: string; size: number }>('/api/uploads', {
+      method: 'POST',
+      body: fd,
+    })
+    formData.value[fieldName] = result.path
+    fileMeta.value[fieldName] = { filename: result.filename, mimetype: result.mimetype }
+  } catch (err: any) {
+    errors.value[fieldName] = err?.data?.error?.message ?? 'Upload mislukt'
+  } finally {
+    fileUploading.value[fieldName] = false
+  }
+}
+
+// Detect file metadata from existing paths on load
+watch(
+  [fields, formData],
+  () => {
+    for (const field of fields.value) {
+      if (field.type === 'file' && formData.value[field.name] && !fileMeta.value[field.name]) {
+        const path = String(formData.value[field.name])
+        const filename = path.split('/').pop() || 'bestand'
+        const ext = filename.substring(filename.lastIndexOf('.')).toLowerCase()
+        const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
+        const mimetype = imageExts.includes(ext) ? `image/${ext.replace('.', '').replace('jpg', 'jpeg')}` : 'application/octet-stream'
+        fileMeta.value[field.name] = { filename, mimetype }
+      }
+    }
+  },
+  { immediate: true, deep: true },
+)
+
 function validate(): boolean {
   const errs: Record<string, string> = {}
   for (const field of fields.value) {
-    if (field.type === 'lookup') continue
+    if (field.type === 'lookup' || field.type === 'computed') continue
     const val = formData.value[field.name]
     if (field.required && (val === '' || val === null || val === undefined)) {
       errs[field.name] = `${field.label ?? field.name} is verplicht`
@@ -126,7 +170,7 @@ async function handleSubmit() {
 
   const payload: Record<string, unknown> = {}
   for (const field of fields.value) {
-    if (field.type === 'lookup') continue
+    if (field.type === 'lookup' || field.type === 'computed') continue
     let val = formData.value[field.name]
     if (field.type === 'integer' && val !== '' && val !== null) val = parseInt(String(val), 10)
     if (field.type === 'float' && val !== '' && val !== null) val = parseFloat(String(val))
@@ -184,8 +228,14 @@ function fieldId(name: string) {
           <span v-if="field.required" class="data-form__required" aria-label="verplicht">*</span>
         </label>
 
+        <!-- Computed: read-only display with calculator icon -->
+        <div v-if="field.type === 'computed'" class="data-form__lookup">
+          <span class="data-form__computed-icon" aria-hidden="true">🧮</span>
+          {{ formData[field.name] ?? '—' }}
+        </div>
+
         <!-- Lookup: read-only display -->
-        <div v-if="field.type === 'lookup'" class="data-form__lookup">
+        <div v-else-if="field.type === 'lookup'" class="data-form__lookup">
           {{ formData[field.name] ?? '—' }}
         </div>
 
@@ -286,6 +336,31 @@ function fieldId(name: string) {
           class="data-form__input"
           @input="formData[field.name] = ($event.target as HTMLInputElement).value"
         />
+
+        <!-- File upload -->
+        <div v-else-if="field.type === 'file'" class="data-form__file-wrap">
+          <input
+            :id="fieldId(field.name)"
+            type="file"
+            :aria-required="field.required || undefined"
+            :aria-invalid="!!errors[field.name]"
+            :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
+            class="data-form__input data-form__file-input"
+            @change="handleFileUpload(field.name, $event)"
+          />
+          <div v-if="fileUploading[field.name]" class="data-form__file-uploading">Uploaden...</div>
+          <div v-if="formData[field.name]" class="data-form__file-preview">
+            <img
+              v-if="fileMeta[field.name]?.mimetype?.startsWith('image/')"
+              :src="String(formData[field.name])"
+              :alt="fileMeta[field.name]?.filename || 'preview'"
+              class="data-form__file-thumb"
+            />
+            <a v-else :href="String(formData[field.name])" target="_blank" class="data-form__file-link">
+              📎 {{ fileMeta[field.name]?.filename || 'Bestand' }}
+            </a>
+          </div>
+        </div>
 
         <!-- Text (default) -->
         <input
@@ -419,6 +494,10 @@ function fieldId(name: string) {
   font-style: italic;
 }
 
+.data-form__computed-icon {
+  margin-right: var(--space-2xs, 4px);
+}
+
 .data-form__toggle-wrap {
   padding-top: var(--space-2xs);
 }
@@ -471,6 +550,43 @@ function fieldId(name: string) {
 
 .data-form__btn--secondary:hover {
   background: var(--intent-secondary-hover);
+}
+
+.data-form__file-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.data-form__file-input {
+  cursor: pointer;
+}
+
+.data-form__file-uploading {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.data-form__file-preview {
+  margin-top: var(--space-2xs);
+}
+
+.data-form__file-thumb {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: var(--radius-default);
+  border: 1px solid var(--border-default);
+  object-fit: cover;
+}
+
+.data-form__file-link {
+  color: var(--text-link, #fb923c);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.data-form__file-link:hover {
+  text-decoration: underline;
 }
 
 /* Focus visible */

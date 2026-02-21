@@ -24,6 +24,8 @@ export interface FieldDefinition {
   relation?: RelationDefinition
   /** For 'lookup' type — fetch a field value via an existing relation */
   lookup?: { relation: string; field: string }
+  /** For 'computed' type — formula evaluated server-side on read */
+  computed?: { formula: string; returnType: string }
 }
 
 /** onDelete policy for relations */

@@ -12,6 +12,8 @@ const types = [
   { type: 'email', label: 'Email', icon: '📧' },
   { type: 'relation', label: 'Koppeling', icon: '🔗' },
   { type: 'lookup', label: 'Ophalen', icon: '🔍' },
+  { type: 'file', label: 'Bestand', icon: '📎' },
+  { type: 'computed', label: 'Berekend', icon: '🧮' },
 ]
 </script>
 

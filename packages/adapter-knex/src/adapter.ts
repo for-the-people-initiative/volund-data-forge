@@ -172,6 +172,16 @@ export class KnexAdapter implements DatabaseAdapter {
     }
   }
 
+  async dropCollection(name: string): Promise<void> {
+    const db = this.db()
+    this.logger?.debug('dropCollection', { collection: name })
+    try {
+      await db.schema.dropTableIfExists(name)
+    } catch (err) {
+      throw new SchemaError(`Failed to drop collection '${name}'`, err)
+    }
+  }
+
   async addField(collection: string, field: FieldDefinition): Promise<void> {
     // Lookup fields are virtual — no DB column needed
     if (field.type === 'lookup') return

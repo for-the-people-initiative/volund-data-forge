@@ -6,7 +6,7 @@
  */
 
 import type { SchemaRegistry, CollectionSchema } from '@data-engine/schema'
-import { DataEngineError } from '@data-engine/schema'
+import { DataEngineError, applyComputedFields, applyComputedFieldsToMany } from '@data-engine/schema'
 import type { QueryAST } from '@data-engine/adapter'
 import type { EngineInterface, RequestContext, ApiResponse, RouteHandler } from './types.js'
 import { parseQueryParams } from './query-parser.js'
@@ -62,9 +62,10 @@ export class ApiRouter {
     try {
       const { ast, populate } = parseQueryParams(req.query)
       const data = await this.engine.findMany(schema.name, ast, populate)
+      const enriched = applyComputedFieldsToMany(data, schema.fields)
       const page = req.query['page'] ? Number(req.query['page']) : undefined
       const limit = ast.limit
-      return successList(data, { total: data.length, page, limit })
+      return successList(enriched, { total: enriched.length, page, limit })
     } catch (err) {
       return this.mapError(err)
     }
@@ -82,7 +83,8 @@ export class ApiRouter {
       const data = await this.engine.findOne(schema.name, query, populate)
       if (!data) return notFound('Record not found')
 
-      return successSingle(data)
+      const enriched = applyComputedFields(data, schema.fields)
+      return successSingle(enriched)
     } catch (err) {
       return this.mapError(err)
     }
