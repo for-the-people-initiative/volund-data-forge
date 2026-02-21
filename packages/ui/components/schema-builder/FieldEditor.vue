@@ -127,7 +127,6 @@ function onClose() {
           id="sb-field-default"
           v-model="local.default"
           :options="booleanDefaultOptions"
-          placeholder="Geen"
         />
       </template>
 

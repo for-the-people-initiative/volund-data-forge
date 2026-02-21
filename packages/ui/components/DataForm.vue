@@ -264,7 +264,6 @@ function getSelectOptions(field: any) {
           :options="getSelectOptions(field)"
           option-label="label"
           option-value="value"
-          placeholder="Kies..."
           :is-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
           @update:model-value="formData[field.name] = $event"
