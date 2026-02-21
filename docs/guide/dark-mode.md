@@ -1,37 +1,42 @@
-# Thema instellingen
+# 🌗 Dark Mode
 
-Volund Data Forge ondersteunt een licht en donker thema.
+Volund Data Forge ondersteunt een licht en donker thema. Standaard wordt het donkere thema gebruikt.
 
 ## Thema wisselen
 
-Gebruik de thema-schakelaar in de navigatie om te wisselen tussen licht en donker.
+Gebruik de thema-toggle in de interface om te schakelen tussen licht en donker. De keuze wordt automatisch opgeslagen in `localStorage` onder de sleutel `vdf-theme`.
 
-[Screenshot: Thema toggle knop in de navigatiebalk]
+## Automatische detectie
 
-## Standaard thema
+Bij het eerste bezoek detecteert VDF automatisch je systeemvoorkeur via `prefers-color-scheme`. Als je systeem op licht staat, wordt het lichte thema geladen. Daarna geldt je handmatige keuze.
 
-Het standaard thema is **donker**. Bij de eerste keer laden wordt het thema bepaald door:
+## Technisch
 
-1. **Opgeslagen voorkeur** — Als je eerder een thema hebt gekozen (opgeslagen in `localStorage` onder `vdf-theme`)
-2. **Systeemvoorkeur** — Anders wordt de voorkeur van je besturingssysteem gebruikt (`prefers-color-scheme`)
-3. **Fallback** — Als geen voorkeur gevonden wordt: donker thema
+Het thema werkt via een `data-theme` attribuut op het `<html>` element:
 
-## Technische werking
+- `data-theme="dark"` — donker thema (standaard)
+- `data-theme="light"` — licht thema
 
-- Het thema wordt ingesteld als `data-theme` attribuut op het `<html>` element
-- Waarden: `light` of `dark`
-- De keuze wordt opgeslagen in `localStorage` (key: `vdf-theme`)
-- De UI gebruikt CSS custom properties (design tokens) die reageren op het data-theme attribuut
+### Gebruik in eigen CSS
 
-## Design tokens
+Je kunt je eigen componenten afstemmen op het actieve thema met CSS-variabelen die per thema worden gedefinieerd, bijvoorbeeld:
 
-De interface gebruikt het **FTP Design System** met tokens voor:
+```css
+.mijn-component {
+  background: var(--surface-panel);
+  color: var(--text-default);
+}
+```
 
-- `--surface-*` — Achtergrondkleuren
-- `--text-*` — Tekstkleuren
-- `--border-*` — Randkleuren
-- `--intent-*` — Intentiekleuren (actie, succes, fout)
-- `--space-*` — Spacing
-- `--radius-*` — Border radius
+### Gebruik in composables
 
-Door het `data-theme` attribuut schakelen alle tokens automatisch mee.
+```ts
+import { useTheme } from '~/composables/useTheme'
+
+const { theme, toggle } = useTheme()
+
+// theme.value → 'dark' | 'light'
+// toggle() → wisselt tussen dark en light
+```
+
+De `theme` ref is readonly — gebruik `toggle()` om te wisselen.

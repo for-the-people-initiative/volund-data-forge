@@ -1,98 +1,74 @@
-# Webhooks
+# 🔔 Webhooks
 
-Webhooks sturen HTTP callbacks wanneer records worden aangemaakt, gewijzigd of verwijderd.
+Met webhooks ontvang je automatisch HTTP callbacks wanneer er CRUD-events plaatsvinden in je collecties. Ideaal voor integraties met externe systemen.
 
-## Overzicht
+## Webhook aanmaken
 
-Bereikbaar via `/webhooks`.
+Navigeer naar **Webhooks** in het menu en vul het formulier in:
 
-[Screenshot: Webhooks pagina met registratieformulier en lijst]
+1. **Collectie** — kies een specifieke collectie of `Alle collecties` (`*`)
+2. **Event** — kies uit:
+   - `Alle events` — triggert bij create, update én delete
+   - `Create` — alleen bij het aanmaken van records
+   - `Update` — alleen bij het bijwerken van records
+   - `Delete` — alleen bij het verwijderen van records
+3. **URL** — het endpoint dat de callback ontvangt (bijv. `https://example.com/webhook`)
+4. **Secret** — een geheim voor de HMAC-signature ter verificatie
 
-## Webhook registreren
+Klik op **+ Webhook toevoegen** om de webhook te registreren.
 
-1. Vul het formulier in:
-   - **Collectie** — Kies een specifieke collectie of `*` (alle collecties)
-   - **Event** — Kies wanneer de webhook moet afgaan:
-     - `Alle events` — Bij elke actie
-     - `Create` — Alleen bij aanmaken
-     - `Update` — Alleen bij wijzigen
-     - `Delete` — Alleen bij verwijderen
-   - **URL** — Het endpoint dat aangeroepen wordt (bijv. `https://example.com/webhook`)
-   - **Secret** — Een geheim voor HMAC-SHA256 signature verificatie
-2. Klik **"+ Webhook toevoegen"**
+## Beheer
 
-## Webhook payload
+Elke webhook toont:
 
-Bij een match stuurt VDF een `POST` request naar de geconfigureerde URL:
-
-### Headers
-
-```
-Content-Type: application/json
-X-Volund-Signature: <HMAC-SHA256 hex digest>
-```
-
-### Body
-
-```json
-{
-  "event": "create",
-  "collection": "contacts",
-  "record": {
-    "id": 1,
-    "name": "Jan Janssen",
-    "email": "jan@example.com",
-    "created_at": "2026-02-21T08:00:00.000Z",
-    "updated_at": "2026-02-21T08:00:00.000Z"
-  },
-  "timestamp": "2026-02-21T08:00:00.123Z"
-}
-```
-
-## Signature verificatie
-
-Verifieer de authenticiteit van webhook payloads met HMAC-SHA256:
-
-```javascript
-import { createHmac } from 'crypto'
-
-function verifySignature(body, secret, signature) {
-  const expected = createHmac('sha256', secret)
-    .update(body)
-    .digest('hex')
-  return expected === signature
-}
-
-// In je webhook handler:
-const signature = req.headers['x-volund-signature']
-const isValid = verifySignature(req.rawBody, 'jouw-secret', signature)
-```
-
-## Webhook beheren
-
-### Activeren / Deactiveren
-
-Klik **⏸️** om een webhook te pauzeren of **▶️** om te heractiveren. Gedeactiveerde webhooks worden niet meer aangeroepen.
-
-### Verwijderen
-
-Klik **🗑️** om een webhook permanent te verwijderen.
-
-### Status badges
-
-Elke webhook toont badges voor:
-- **Collectie** — Welke collectie
-- **Event** — Welk event type
+- **Collectie** en **event** als badges
 - **Status** — Actief (groen) of Inactief (rood)
+- **URL** — het geconfigureerde endpoint
 
-## Technische details
+### Acties
 
-- Webhooks zijn **fire-and-forget** — ze blokkeren de hoofdoperatie niet
-- Mislukte HTTP calls worden gelogd in de server console
-- Interne tabellen (prefix `_`) triggeren geen webhooks
-- Webhook registraties worden opgeslagen in de interne tabel `_webhooks`
-- Matching: een webhook matcht als collectie overeenkomt (of `*`) én event overeenkomt (of `all`)
+- **⏸️ / ▶️** — Activeer of deactiveer een webhook zonder deze te verwijderen
+- **🗑️** — Verwijder de webhook permanent
 
-## API
+## API Endpoints
 
-Zie de [REST API documentatie](../api/rest-api.md#webhooks) voor de webhook management endpoints.
+### Webhooks ophalen
+
+```
+GET /api/webhooks
+```
+
+### Webhook aanmaken
+
+```
+POST /api/webhooks
+Content-Type: application/json
+
+{
+  "collection": "producten",
+  "event": "create",
+  "url": "https://example.com/webhook",
+  "secret": "mijn-geheim"
+}
+```
+
+### Webhook aan/uitzetten
+
+```
+PATCH /api/webhooks/:id
+Content-Type: application/json
+
+{
+  "active": false
+}
+```
+
+### Webhook verwijderen
+
+```
+DELETE /api/webhooks/:id
+```
+
+## Beveiliging
+
+Elke webhook vereist een **secret**. Dit secret wordt gebruikt om een HMAC-signature te genereren bij het versturen van de callback, zodat de ontvanger kan verifiëren dat het bericht authentiek is.

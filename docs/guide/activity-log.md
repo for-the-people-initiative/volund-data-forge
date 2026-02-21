@@ -1,68 +1,61 @@
-# Activiteitenlog
+# 📋 Activiteitenlog
 
-De activiteitenlog houdt automatisch alle CRUD-operaties bij als audit trail.
+De activiteitenlog houdt een audit trail bij van alle CRUD-operaties op je collecties. Elke aanmaak, wijziging en verwijdering wordt automatisch vastgelegd.
 
 ## Overzicht
 
-Bereikbaar via `/activity`.
+De activiteitenlog is beschikbaar via het menu-item **Activiteitenlog** en toont een tijdlijn van alle wijzigingen in je data.
 
-[Screenshot: Activiteitenlog met timeline van events]
+Elke entry bevat:
 
-## Wat wordt gelogd
-
-Elke create, update of delete operatie op een collectie wordt vastgelegd met:
-
-| Veld | Beschrijving |
-|------|-------------|
-| `collection` | Naam van de collectie |
-| `record_id` | ID van het betreffende record |
-| `action` | Type actie: `create`, `update` of `delete` |
-| `changes` | JSON met de meegegeven data (bij create/update) |
-| `timestamp` | Tijdstip van de actie (ISO 8601) |
-
-## Weergave
-
-Events worden getoond als een **timeline** met:
-
-- 🟢 **Aangemaakt** — Nieuw record
-- 🟡 **Bijgewerkt** — Record gewijzigd
-- 🔴 **Verwijderd** — Record verwijderd
-
-Elke entry toont:
-- De actie en collectienaam
-- Het record ID
-- Het tijdstip (Nederlands formaat)
-- Een uitklapbare **"Wijzigingen"** sectie met de JSON data
+- **Actie** — 🟢 Aangemaakt, 🟡 Bijgewerkt, of 🔴 Verwijderd
+- **Collectie** — de collectie waarin de wijziging plaatsvond
+- **Record ID** — het ID van het betreffende record
+- **Tijdstip** — datum en tijd van de wijziging (NL-formaat)
+- **Wijzigingen** — de gewijzigde velden (uitklapbaar)
 
 ## Filteren
 
-Filter op collectie via de dropdown bovenaan:
-
-1. Selecteer een collectie uit de dropdown
-2. Alleen activiteiten voor die collectie worden getoond
-3. Klik **"✕ Reset"** om het filter te wissen
+Je kunt de log filteren op collectie via het dropdown-menu bovenaan de pagina. Klik op **✕ Reset** om het filter te wissen.
 
 ## Paginering
 
-- Standaard **30 entries per pagina**
-- Navigeer met Vorige/Volgende knoppen
-- Nieuwste entries worden eerst getoond (gesorteerd op ID aflopend)
-
-## Verversing
-
-Klik de **🔄** knop om de log te verversen.
-
-## Technische details
-
-- De activiteitenlog wordt opgeslagen in de interne tabel `_activity_log`
-- Deze tabel is niet toegankelijk via de collectie-API (prefix `_` wordt geblokkeerd)
-- Logging-fouten worden opgevangen en breken de hoofdoperatie niet
-- De log bevat geen authenticatie-informatie (nog geen auth systeem)
+De log toont 30 entries per pagina. Gebruik de navigatieknoppen onderaan om door de resultaten te bladeren.
 
 ## API
 
+De activiteitenlog is ook beschikbaar via de REST API:
+
 ```
-GET /api/activity?collection=contacts&limit=50&offset=0
+GET /api/activity?collection=producten&limit=30&offset=0
 ```
 
-Zie de [REST API documentatie](../api/rest-api.md#activiteitenlog) voor details.
+**Parameters:**
+
+| Parameter    | Beschrijving                          |
+|-------------|---------------------------------------|
+| `collection` | Filter op collectienaam (optioneel)   |
+| `limit`      | Aantal resultaten per pagina          |
+| `offset`     | Aantal resultaten om over te slaan    |
+
+**Response:**
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "action": "create",
+      "collection": "producten",
+      "record_id": "42",
+      "changes": "{\"naam\": \"Nieuw product\"}",
+      "timestamp": "2026-02-20T14:30:00.000Z"
+    }
+  ],
+  "total": 150
+}
+```
+
+## Details van wijzigingen
+
+Bij update-acties worden de gewijzigde velden opgeslagen als JSON. Klik op **Wijzigingen** om de details te bekijken. Dit toont precies welke velden zijn aangepast en naar welke waarden.
