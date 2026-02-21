@@ -12,6 +12,16 @@ const TABLE = '_activity_log'
  * Uses adapter.createCollection which is idempotent-ish — we catch "already exists".
  */
 export async function ensureActivityLog(adapter: DatabaseAdapter): Promise<void> {
+  // Use introspect to check if table already exists
+  try {
+    const schema = await adapter.introspect()
+    if (schema.tables?.some((t: any) => t.name === TABLE)) {
+      return
+    }
+  } catch {
+    // introspect not available — fall through to create with catch
+  }
+
   try {
     await adapter.createCollection(TABLE, [
       { name: 'collection', type: 'text', required: true },
@@ -21,7 +31,7 @@ export async function ensureActivityLog(adapter: DatabaseAdapter): Promise<void>
       { name: 'timestamp', type: 'text', required: true },
     ])
   } catch (e: any) {
-    // Table already exists — that's fine
+    // Table already exists — that's fine (race condition guard)
     if (e?.message?.includes('already exists')) return
     throw e
   }
