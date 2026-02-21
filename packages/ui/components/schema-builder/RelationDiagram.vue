@@ -13,13 +13,13 @@ const reverseLinkLabel = computed(() => 'meerdere')
 
 <template>
   <div v-if="targetCollection" class="sb-relation-diagram">
-    <div class="sb-relation-diagram__node">{{ sourceLabel }}</div>
+    <FtpTag :value="sourceLabel" severity="info" />
     <div class="sb-relation-diagram__edge">
       <span class="sb-relation-diagram__cardinality">{{ reverseLinkLabel }}</span>
       <div class="sb-relation-diagram__line" />
       <span class="sb-relation-diagram__cardinality">{{ linkLabel }}</span>
     </div>
-    <div class="sb-relation-diagram__node">{{ targetLabel }}</div>
+    <FtpTag :value="targetLabel" severity="info" />
   </div>
 </template>
 
@@ -32,17 +32,6 @@ const reverseLinkLabel = computed(() => 'meerdere')
   background: var(--surface-muted, #060813);
   border: 1px solid var(--border-subtle, #1a2244);
   border-radius: var(--radius-default, 5px);
-}
-
-.sb-relation-diagram__node {
-  padding: var(--space-2xs, 4px) var(--space-s, 10px);
-  background: var(--surface-interactive, #232a4d);
-  border: 1px solid var(--border-subtle, #1a2244);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-heading, #fff);
-  font-size: 0.8rem;
-  font-weight: 600;
-  white-space: nowrap;
 }
 
 .sb-relation-diagram__edge {
@@ -62,7 +51,7 @@ const reverseLinkLabel = computed(() => 'meerdere')
 
 .sb-relation-diagram__cardinality {
   font-size: 0.7rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 </style>

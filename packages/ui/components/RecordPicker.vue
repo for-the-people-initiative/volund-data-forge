@@ -5,13 +5,9 @@
  */
 
 const props = defineProps<{
-  /** Target collection to pick records from */
   collection: string
-  /** Current selected value(s) — id string or array of id strings */
   modelValue: string | string[] | null
-  /** Allow multiple selection (manyToMany) */
   multiple?: boolean
-  /** Placeholder text */
   placeholder?: string
 }>()
 
@@ -26,15 +22,12 @@ const search = ref('')
 const allRecords = ref<Array<{ id: string; label: string }>>([])
 const loading = ref(false)
 const triggerRef = ref<HTMLElement | null>(null)
-const modalRef = ref<HTMLElement | null>(null)
 
-// Normalize selected values to array
 const selectedIds = computed<string[]>(() => {
   if (!props.modelValue) return []
   return Array.isArray(props.modelValue) ? props.modelValue : [props.modelValue]
 })
 
-// Selected record objects (for chips display)
 const selectedRecords = computed(
   () =>
     selectedIds.value
@@ -42,16 +35,14 @@ const selectedRecords = computed(
       .filter(Boolean) as Array<{ id: string; label: string }>,
 )
 
-// Filtered records based on search
 const filteredRecords = computed(() => {
   const q = search.value.toLowerCase().trim()
   if (!q) return allRecords.value
   return allRecords.value.filter((r) => r.label.toLowerCase().includes(q))
 })
 
-// Load records when opened
 async function loadRecords() {
-  if (allRecords.value.length > 0) return // already loaded
+  if (allRecords.value.length > 0) return
   loading.value = true
   try {
     const result = await listRecords(props.collection, { limit: 100 })
@@ -110,29 +101,6 @@ function removeSelected(id: string) {
     emit('update:modelValue', null)
   }
 }
-
-// Close on Escape + focus trap
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    closeModal()
-    return
-  }
-  if (e.key === 'Tab' && modalRef.value) {
-    const focusable = modalRef.value.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    )
-    if (!focusable.length) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
-  }
-}
 </script>
 
 <template>
@@ -141,14 +109,14 @@ function handleKeydown(e: KeyboardEvent) {
     <div ref="triggerRef" class="record-picker__display" tabindex="0" role="combobox" :aria-expanded="open" aria-haspopup="dialog" @click="openModal" @keydown.enter.prevent="openModal" @keydown.space.prevent="openModal">
       <span v-for="rec in selectedRecords" :key="rec.id" class="record-picker__chip">
         {{ rec.label }}
-        <button
-          type="button"
+        <FtpButton
+          label="×"
+          variant="secondary"
+          size="sm"
           class="record-picker__chip-remove"
           aria-label="Verwijder"
           @click.stop="removeSelected(rec.id)"
-        >
-          ×
-        </button>
+        />
       </span>
       <span v-if="!selectedRecords.length" class="record-picker__placeholder">
         {{ placeholder ?? `Kies ${collection}...` }}
@@ -156,85 +124,61 @@ function handleKeydown(e: KeyboardEvent) {
       <span class="record-picker__trigger-icon" aria-hidden="true">▾</span>
     </div>
 
-    <!-- Modal overlay -->
-    <Teleport to="body">
-      <div
-        v-if="open"
-        class="record-picker__overlay"
-        @click.self="closeModal"
-        @keydown="handleKeydown"
-      >
-        <div ref="modalRef" class="record-picker__modal" role="dialog" aria-modal="true" aria-labelledby="record-picker-title">
-          <div class="record-picker__header">
-            <h3 id="record-picker-title" class="record-picker__title">{{ collection }}</h3>
-            <button
-              type="button"
-              class="record-picker__close"
-              @click="closeModal"
-              aria-label="Sluiten"
-            >
-              ×
-            </button>
-          </div>
-
-          <!-- Search -->
-          <div class="record-picker__search-wrap">
-            <label for="record-picker-search" class="sr-only">Zoeken</label>
-            <input
-              id="record-picker-search"
-              ref="searchInput"
-              v-model="search"
-              type="text"
-              class="record-picker__search"
-              placeholder="Zoeken..."
-              autofocus
-            />
-          </div>
-
-          <!-- Record list -->
-          <div class="record-picker__list">
-            <div v-if="loading" class="record-picker__empty">Laden...</div>
-            <div v-else-if="!filteredRecords.length" class="record-picker__empty">
-              Geen resultaten gevonden
-            </div>
-            <button
-              v-for="rec in filteredRecords"
-              v-else
-              :key="rec.id"
-              type="button"
-              class="record-picker__item"
-              :class="{ 'record-picker__item--selected': isSelected(rec.id) }"
-              @click="selectRecord(rec)"
-            >
-              <span class="record-picker__item-label">{{ rec.label }}</span>
-              <span v-if="isSelected(rec.id)" class="record-picker__item-check" aria-hidden="true"
-                >✓</span
-              >
-            </button>
-          </div>
-
-          <!-- Footer -->
-          <div class="record-picker__footer">
-            <button
-              type="button"
-              class="record-picker__new-btn"
-              disabled
-              title="Binnenkort beschikbaar"
-            >
-              + Nieuw aanmaken
-            </button>
-            <button
-              v-if="multiple"
-              type="button"
-              class="record-picker__done-btn"
-              @click="closeModal"
-            >
-              Klaar
-            </button>
-          </div>
-        </div>
+    <!-- Modal -->
+    <FtpDialog
+      :visible="open"
+      :header="collection"
+      :modal="true"
+      size="md"
+      @update:visible="!$event && closeModal()"
+    >
+      <!-- Search -->
+      <div class="record-picker__search-wrap">
+        <FtpInputText
+          v-model="search"
+          placeholder="Zoeken..."
+        />
       </div>
-    </Teleport>
+
+      <!-- Record list -->
+      <div class="record-picker__list">
+        <div v-if="loading" class="record-picker__empty">Laden...</div>
+        <div v-else-if="!filteredRecords.length" class="record-picker__empty">
+          Geen resultaten gevonden
+        </div>
+        <FtpButton
+          v-for="rec in filteredRecords"
+          v-else
+          :key="rec.id"
+          :label="rec.label"
+          :variant="isSelected(rec.id) ? 'primary' : 'secondary'"
+          class="record-picker__item"
+          @click="selectRecord(rec)"
+        >
+          <span class="record-picker__item-label">{{ rec.label }}</span>
+          <span v-if="isSelected(rec.id)" class="record-picker__item-check" aria-hidden="true">✓</span>
+        </FtpButton>
+      </div>
+
+      <template #footer>
+        <div class="record-picker__footer">
+          <FtpButton
+            label="+ Nieuw aanmaken"
+            variant="secondary"
+            size="sm"
+            :is-disabled="true"
+            title="Binnenkort beschikbaar"
+          />
+          <FtpButton
+            v-if="multiple"
+            label="Klaar"
+            variant="primary"
+            size="sm"
+            @click="closeModal"
+          />
+        </div>
+      </template>
+    </FtpDialog>
   </div>
 </template>
 
@@ -281,7 +225,7 @@ function handleKeydown(e: KeyboardEvent) {
   line-height: 1.4;
 }
 
-.record-picker__chip-remove {
+.record-picker__chip-remove :deep(.button) {
   all: unset;
   cursor: pointer;
   font-size: 0.875rem;
@@ -290,91 +234,24 @@ function handleKeydown(e: KeyboardEvent) {
   padding: 0 2px;
 }
 
-.record-picker__chip-remove:hover {
+.record-picker__chip-remove :deep(.button:hover) {
   opacity: 1;
 }
 
-/* Modal overlay */
-.record-picker__overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.record-picker__modal {
-  background: var(--surface-elevated, var(--surface-panel));
-  border-radius: var(--radius-default);
-  width: 90%;
-  max-width: 480px;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-
-.record-picker__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-s) var(--space-m);
-  border-bottom: 1px solid var(--border-default);
-}
-
-.record-picker__title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-default);
-  text-transform: capitalize;
-}
-
-.record-picker__close {
-  all: unset;
-  cursor: pointer;
-  font-size: 1.25rem;
-  color: var(--text-muted);
-  padding: var(--space-2xs);
-  line-height: 1;
-}
-
-.record-picker__close:hover {
-  color: var(--text-default);
-}
-
 .record-picker__search-wrap {
-  padding: var(--space-s) var(--space-m);
+  margin-bottom: var(--space-s);
 }
 
-.record-picker__search {
+.record-picker__search-wrap :deep(.input-text) {
   width: 100%;
-  padding: var(--space-xs) var(--space-s);
-  background: var(--surface-panel);
-  color: var(--text-default);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-default);
-  font-size: 0.9375rem;
-  font-family: inherit;
-}
-
-.record-picker__search:focus {
-  outline: none;
-  border-color: var(--border-focus);
-  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
-}
-
-.record-picker__search::placeholder {
-  color: var(--text-subtle);
 }
 
 .record-picker__list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 var(--space-xs);
   max-height: 320px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs, 4px);
 }
 
 .record-picker__empty {
@@ -385,31 +262,14 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 .record-picker__item {
-  all: unset;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   width: 100%;
-  padding: var(--space-xs) var(--space-s);
-  border-radius: var(--radius-default);
-  cursor: pointer;
-  font-size: 0.9375rem;
-  color: var(--text-default);
-  box-sizing: border-box;
-  transition: background 0.1s;
 }
 
-.record-picker__item:hover {
-  background: var(--surface-hover, rgba(255, 255, 255, 0.05));
-}
-
-.record-picker__item--selected {
-  background: var(--intent-action-default);
-  color: var(--text-inverse);
-}
-
-.record-picker__item--selected:hover {
-  background: var(--intent-action-hover);
+.record-picker__item :deep(.button) {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  text-align: left;
 }
 
 .record-picker__item-check {
@@ -421,64 +281,16 @@ function handleKeydown(e: KeyboardEvent) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-s) var(--space-m);
-  border-top: 1px solid var(--border-default);
+  width: 100%;
 }
 
-.record-picker__new-btn {
-  all: unset;
-  cursor: not-allowed;
-  font-size: 0.8125rem;
-  color: var(--text-subtle);
-  opacity: 0.6;
-}
-
-.record-picker__done-btn {
-  padding: var(--space-2xs) var(--space-s);
-  background: var(--intent-action-default);
-  color: var(--text-inverse);
-  border: none;
-  border-radius: var(--radius-default);
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.record-picker__done-btn:hover {
-  background: var(--intent-action-hover);
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.record-picker__display:focus-visible,
-.record-picker__item:focus-visible,
-.record-picker__close:focus-visible,
-.record-picker__done-btn:focus-visible,
-.record-picker__chip-remove:focus-visible {
+.record-picker__display:focus-visible {
   outline: 2px solid var(--border-focus, #f97316);
   outline-offset: 2px;
 }
 
 /* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {
-  .record-picker__modal {
-    width: 100%;
-    max-width: 100%;
-    max-height: 100vh;
-    height: 100vh;
-    border-radius: 0;
-  }
-
   .record-picker__list {
     max-height: none;
     flex: 1;

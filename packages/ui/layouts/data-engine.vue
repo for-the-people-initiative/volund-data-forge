@@ -22,28 +22,50 @@ function capitalize(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
-const { theme, toggle: toggleTheme } = useTheme()
+// Theme toggle removed - VDF uses dark mode only
 
 const router = useRouter()
-const searchQuery = ref('')
-let searchDebounce: ReturnType<typeof setTimeout> | null = null
-
-function onSearchInput(value: string) {
-  searchQuery.value = value
-  if (searchDebounce) clearTimeout(searchDebounce)
-  searchDebounce = setTimeout(() => {
-    if (value.trim()) {
-      router.push({ path: '/search', query: { q: value.trim() } })
-    }
-  }, 300)
-}
 
 function onSearchSubmit() {
-  if (searchDebounce) clearTimeout(searchDebounce)
-  if (searchQuery.value.trim()) {
-    router.push({ path: '/search', query: { q: searchQuery.value.trim() } })
+  if (sidebarFilter.value.trim()) {
+    router.push({ path: '/search', query: { q: sidebarFilter.value.trim() } })
   }
 }
+
+// Sidebar filter
+const sidebarFilter = ref('')
+
+const filteredCollections = computed(() => {
+  if (!dynamicCollections.value?.length) return []
+  if (!sidebarFilter.value.trim()) return dynamicCollections.value
+  const q = sidebarFilter.value.trim().toLowerCase()
+  return dynamicCollections.value.filter((col) =>
+    capitalize(col.name).toLowerCase().includes(q),
+  )
+})
+
+const overigItems = [
+  { to: '/builder', emoji: '🏗️', label: 'Schema Builder' },
+  { to: '/webhooks', emoji: '🔔', label: 'Webhooks' },
+  { to: '/schema-overview', emoji: '🗺️', label: 'Schema Overzicht' },
+  { to: '/activity', emoji: '📋', label: 'Activiteitenlog' },
+]
+
+const filteredOverig = computed(() => {
+  if (!sidebarFilter.value.trim()) return overigItems
+  const q = sidebarFilter.value.trim().toLowerCase()
+  return overigItems.filter((item) => item.label.toLowerCase().includes(q))
+})
+
+const showDashboard = computed(() => {
+  if (!sidebarFilter.value.trim()) return true
+  return 'dashboard'.includes(sidebarFilter.value.trim().toLowerCase())
+})
+
+const showAbout = computed(() => {
+  if (!sidebarFilter.value.trim()) return true
+  return 'over volund'.includes(sidebarFilter.value.trim().toLowerCase())
+})
 
 const sidebarOpen = ref(false)
 
@@ -55,7 +77,6 @@ function closeSidebar() {
   sidebarOpen.value = false
 }
 
-// Close sidebar on navigation
 watch(
   () => route.fullPath,
   () => {
@@ -70,17 +91,19 @@ watch(
     <a href="#main-content" class="de-layout__skip-link">Ga naar inhoud</a>
 
     <!-- Hamburger button (mobile only) -->
-    <button
+    <FtpButton
       class="de-layout__hamburger"
-      @click="toggleSidebar"
-      aria-label="Menu"
       :aria-expanded="sidebarOpen"
       aria-controls="sidebar-nav"
+      aria-label="Menu"
+      variant="secondary"
+      size="sm"
+      @click="toggleSidebar"
     >
       <span class="de-layout__hamburger-line" />
       <span class="de-layout__hamburger-line" />
       <span class="de-layout__hamburger-line" />
-    </button>
+    </FtpButton>
 
     <!-- Overlay (mobile only) -->
     <div v-if="sidebarOpen" class="de-layout__overlay" @click="closeSidebar" />
@@ -90,26 +113,25 @@ watch(
         <strong>Data Engine</strong>
       </NuxtLink>
       <form class="de-layout__search" @submit.prevent="onSearchSubmit" role="search">
-        <input
-          type="search"
-          class="de-layout__search-input"
+        <FtpInputText
+          v-model="sidebarFilter"
           placeholder="Zoeken..."
-          :value="searchQuery"
-          @input="onSearchInput(($event.target as HTMLInputElement).value)"
-          aria-label="Zoek in alle collecties"
+          size="sm"
+          aria-label="Filter sidebar navigatie"
         />
       </form>
       <nav class="de-layout__nav" aria-label="Hoofdnavigatie">
         <NuxtLink
+          v-if="showDashboard"
           to="/"
           class="de-layout__nav-item"
           :aria-current="route.path === '/' ? 'page' : undefined"
         >📊 Dashboard</NuxtLink>
 
-        <div v-if="dynamicCollections?.length" class="de-layout__nav-section">
+        <div v-if="filteredCollections.length" class="de-layout__nav-section">
           <span class="de-layout__nav-label">Collecties</span>
           <NuxtLink
-            v-for="col in dynamicCollections"
+            v-for="col in filteredCollections"
             :key="col.name"
             :to="`/collections/${col.name}`"
             class="de-layout__nav-item"
@@ -119,42 +141,20 @@ watch(
           </NuxtLink>
         </div>
 
-        <NuxtLink
-          to="/builder"
-          class="de-layout__nav-item"
-          :aria-current="route.path === '/builder' ? 'page' : undefined"
-        >🏗️ Schema Builder</NuxtLink>
-
-        <NuxtLink
-          to="/webhooks"
-          class="de-layout__nav-item"
-          :aria-current="route.path === '/webhooks' ? 'page' : undefined"
-        >🔔 Webhooks</NuxtLink>
-
-        <NuxtLink
-          to="/schema-overview"
-          class="de-layout__nav-item"
-          :aria-current="route.path === '/schema-overview' ? 'page' : undefined"
-        >🗺️ Schema Overzicht</NuxtLink>
-
-        <NuxtLink
-          to="/activity"
-          class="de-layout__nav-item"
-          :aria-current="route.path === '/activity' ? 'page' : undefined"
-        >📋 Activiteitenlog</NuxtLink>
+        <div v-if="filteredOverig.length" class="de-layout__nav-section">
+          <span class="de-layout__nav-label">Overige</span>
+          <NuxtLink
+            v-for="item in filteredOverig"
+            :key="item.to"
+            :to="item.to"
+            class="de-layout__nav-item"
+            :aria-current="route.path === item.to ? 'page' : undefined"
+          >{{ item.emoji }} {{ item.label }}</NuxtLink>
+        </div>
       </nav>
       <div class="de-layout__nav-bottom">
-        <button
-          class="de-layout__theme-toggle"
-          @click="toggleTheme"
-          :aria-label="theme === 'dark' ? 'Schakel naar licht thema' : 'Schakel naar donker thema'"
-          :title="theme === 'dark' ? 'Licht thema' : 'Donker thema'"
-        >
-          <span v-if="theme === 'dark'">☀️</span>
-          <span v-else>🌙</span>
-          <span class="de-layout__theme-label">{{ theme === 'dark' ? 'Licht' : 'Donker' }}</span>
-        </button>
         <NuxtLink
+          v-if="showAbout"
           to="/about"
           class="de-layout__nav-item"
           :aria-current="route.path === '/about' ? 'page' : undefined"
@@ -181,7 +181,7 @@ watch(
   z-index: 2000;
   padding: var(--space-xs, 6px) var(--space-m, 16px);
   background: var(--intent-action-default, #f97316);
-  color: var(--text-inverse, #000);
+  color: var(--text-inverse);
   border-radius: var(--radius-default, 5px);
   text-decoration: none;
   font-weight: 600;
@@ -204,25 +204,15 @@ watch(
   top: var(--space-s, 10px);
   left: var(--space-s, 10px);
   z-index: 1001;
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  padding: 8px;
-  cursor: pointer;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
 }
 
 .de-layout__hamburger-line {
   display: block;
   width: 20px;
   height: 2px;
-  background: var(--text-default, #fff);
+  background: var(--text-default);
   border-radius: 1px;
+  margin: 2px 0;
 }
 
 /* Overlay — mobile only */
@@ -237,38 +227,15 @@ watch(
 .de-layout__sidebar {
   width: 220px;
   flex-shrink: 0;
-  background: var(--surface-muted, #060813);
-  border-right: 1px solid var(--border-subtle, #1a2244);
+  background: var(--surface-panel);
+  border-right: 1px solid var(--border-subtle);
   padding: var(--space-m, 16px);
   display: flex;
   flex-direction: column;
   gap: var(--space-m, 16px);
 }
 
-.de-layout__theme-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs, 6px);
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  border-radius: var(--radius-default, 5px);
-  background: transparent;
-  border: 1px solid var(--border-default, #242e5c);
-  color: var(--text-secondary, #9ea5c2);
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  width: 100%;
-  text-align: left;
-}
-
-.de-layout__theme-toggle:hover {
-  background: var(--surface-panel, #11162d);
-  color: var(--text-default, #fff);
-}
-
-.de-layout__theme-label {
-  flex: 1;
-}
+/* Theme toggle styles removed - VDF uses dark mode only */
 
 .de-layout__nav-bottom {
   margin-top: auto;
@@ -276,34 +243,24 @@ watch(
   flex-direction: column;
   gap: var(--space-2xs, 4px);
   padding-top: var(--space-s, 10px);
-  border-top: 1px solid var(--border-subtle, #1a2244);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .de-layout__search {
   margin: 0;
 }
 
-.de-layout__search-input {
+.de-layout__search :deep(.input-text) {
   width: 100%;
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
   font-size: 0.8rem;
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-}
-
-.de-layout__search-input:focus {
-  outline: 2px solid var(--border-focus, #f97316);
-  outline-offset: 2px;
 }
 
 .de-layout__brand {
   text-decoration: none;
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
   font-size: 1rem;
   padding-bottom: var(--space-s, 10px);
-  border-bottom: 1px solid var(--border-subtle, #1a2244);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .de-layout__nav {
@@ -322,7 +279,7 @@ watch(
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   padding: var(--space-xs, 6px) var(--space-s, 10px) 0;
   opacity: 0.6;
 }
@@ -331,7 +288,7 @@ watch(
   display: block;
   padding: var(--space-xs, 6px) var(--space-s, 10px);
   border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.875rem;
   transition:
@@ -340,13 +297,13 @@ watch(
 }
 
 .de-layout__nav-item:hover {
-  background: var(--surface-panel, #11162d);
-  color: var(--text-default, #fff);
+  background: var(--surface-muted);
+  color: var(--text-default);
 }
 
 .de-layout__nav-item.router-link-active {
-  background: var(--surface-panel, #11162d);
-  color: var(--text-default, #fff);
+  background: var(--surface-muted);
+  color: var(--text-default);
 }
 
 .de-layout__main {
@@ -358,7 +315,6 @@ watch(
 
 /* Focus visible */
 .de-layout__nav-item:focus-visible,
-.de-layout__hamburger:focus-visible,
 .de-layout__brand:focus-visible {
   outline: 2px solid var(--border-focus, #f97316);
   outline-offset: 2px;
@@ -390,7 +346,7 @@ watch(
 
   .de-layout__main {
     padding: var(--space-m, 16px);
-    padding-top: 56px; /* space for hamburger */
+    padding-top: 56px;
   }
 }
 </style>

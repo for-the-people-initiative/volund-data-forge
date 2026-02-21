@@ -11,7 +11,6 @@ const emit = defineEmits<{
 const sb = useSchemaBuilder({ initialCollection: props.initialCollection })
 sb.init()
 
-// Forward events from composable
 async function handleSave() {
   const name = await sb.saveSchema()
   if (name) emit('saved', name)
@@ -27,15 +26,14 @@ async function handleDelete() {
   <div class="sb-container">
     <!-- Feedback banner -->
     <Transition name="sb-feedback">
-      <div
+      <FtpMessage
         v-if="sb.feedback.value"
-        :class="['sb-feedback', `sb-feedback--${sb.feedback.value.type}`]"
-        @click="sb.clearFeedback"
+        :severity="sb.feedback.value.type === 'success' ? 'success' : 'error'"
+        :closable="true"
+        @close="sb.clearFeedback"
       >
-        <span>{{ sb.feedback.value.type === 'success' ? '✓' : '✕' }}</span>
-        <span>{{ sb.feedback.value.message }}</span>
-        <button class="sb-feedback__close" @click.stop="sb.clearFeedback">✕</button>
-      </div>
+        {{ sb.feedback.value.message }}
+      </FtpMessage>
     </Transition>
 
     <SchemaBuilderCollectionList
@@ -49,6 +47,7 @@ async function handleDelete() {
     <div class="sb-main">
       <!-- Loading overlay -->
       <div v-if="sb.isLoading.value" class="sb-loading">
+        <FtpProgressSpinner />
         <span>Laden...</span>
       </div>
 
@@ -68,25 +67,31 @@ async function handleDelete() {
 
         <!-- Action buttons -->
         <div class="sb-actions">
-          <button class="sb-actions__save" :disabled="sb.isLoading.value" @click="handleSave">
-            {{ sb.isEditMode.value ? '💾 Opslaan' : '💾 Collectie aanmaken' }}
-          </button>
+          <FtpButton
+            :label="sb.isEditMode.value ? '💾 Opslaan' : '💾 Collectie aanmaken'"
+            variant="primary"
+            :is-disabled="sb.isLoading.value"
+            @click="handleSave"
+          />
 
-          <button
+          <FtpButton
             v-if="sb.isEditMode.value"
+            label="🗑️ Verwijderen"
+            variant="secondary"
             class="sb-actions__delete"
-            :disabled="sb.isLoading.value"
+            :is-disabled="sb.isLoading.value"
             @click="handleDelete"
-          >
-            🗑️ Verwijderen
-          </button>
+          />
 
           <span v-if="sb.isDirty.value" class="sb-actions__dirty">● Onopgeslagen wijzigingen</span>
         </div>
 
-        <button class="sb-preview-toggle" @click="sb.showPreview.value = !sb.showPreview.value">
-          {{ sb.showPreview.value ? '🔽 Verberg preview' : '🔼 Toon schema preview' }}
-        </button>
+        <FtpButton
+          :label="sb.showPreview.value ? '🔽 Verberg preview' : '🔼 Toon schema preview'"
+          variant="secondary"
+          size="sm"
+          @click="sb.showPreview.value = !sb.showPreview.value"
+        />
 
         <SchemaBuilderSchemaPreview
           v-if="sb.showPreview.value"
@@ -142,59 +147,42 @@ async function handleDelete() {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
-.sb-preview-toggle {
-  background: none;
-  border: 1px solid var(--border-subtle, #1a2244);
-  color: var(--text-secondary, #9ea5c2);
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  border-radius: var(--radius-default, 5px);
-  cursor: pointer;
-  font-size: 0.85rem;
-  align-self: flex-start;
-}
-.sb-preview-toggle:hover {
-  background: var(--surface-panel, #11162d);
-  color: var(--text-default, #fff);
-}
-
-.sb-feedback {
-  position: fixed;
-  top: var(--space-m, 16px);
-  right: var(--space-m, 16px);
-  z-index: 1000;
+.sb-actions {
   display: flex;
   align-items: center;
   gap: var(--space-s, 10px);
-  padding: var(--space-s, 10px) var(--space-m, 16px);
-  border-radius: var(--radius-default, 5px);
-  font-size: 0.875rem;
-  cursor: pointer;
-  max-width: 400px;
 }
 
-.sb-feedback--success {
-  background: #0a2e1a;
-  border: 1px solid #16a34a;
-  color: #4ade80;
-}
-
-.sb-feedback--error {
-  background: #2e0a0a;
-  border: 1px solid #dc2626;
+.sb-actions__delete :deep(.button) {
+  border-color: #dc2626;
   color: #f87171;
 }
+.sb-actions__delete :deep(.button:hover) {
+  background: #2e0a0a;
+}
 
-.sb-feedback__close {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  margin-left: auto;
+.sb-actions__dirty {
+  color: var(--intent-action-default);
   font-size: 0.8rem;
+}
+
+.sb-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 8, 19, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-s, 10px);
+  z-index: 10;
+  border-radius: var(--radius-default, 5px);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
 }
 
 .sb-feedback-enter-active,
@@ -207,74 +195,6 @@ async function handleDelete() {
 .sb-feedback-leave-to {
   opacity: 0;
   transform: translateY(-10px);
-}
-
-.sb-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-s, 10px);
-}
-
-.sb-actions__save {
-  background: var(--intent-action-default, #f97316);
-  color: var(--text-inverse, #000);
-  border: none;
-  border-radius: var(--radius-default, 5px);
-  padding: var(--space-xs, 6px) var(--space-m, 16px);
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background 0.15s;
-}
-.sb-actions__save:hover {
-  background: var(--intent-action-hover, #ea580c);
-}
-.sb-actions__save:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.sb-actions__delete {
-  background: none;
-  border: 1px solid #dc2626;
-  color: #f87171;
-  border-radius: var(--radius-default, 5px);
-  padding: var(--space-xs, 6px) var(--space-m, 16px);
-  cursor: pointer;
-  font-size: 0.875rem;
-  transition: background 0.15s;
-}
-.sb-actions__delete:hover {
-  background: #2e0a0a;
-}
-.sb-actions__delete:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.sb-actions__dirty {
-  color: var(--intent-action-default, #f97316);
-  font-size: 0.8rem;
-}
-
-.sb-loading {
-  position: absolute;
-  inset: 0;
-  background: rgba(6, 8, 19, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
-  font-size: 0.9rem;
-}
-
-.sb-actions__save:focus-visible,
-.sb-actions__delete:focus-visible,
-.sb-preview-toggle:focus-visible {
-  outline: 2px solid var(--border-focus, #f97316);
-  outline-offset: 2px;
 }
 
 @media (max-width: 767px) {

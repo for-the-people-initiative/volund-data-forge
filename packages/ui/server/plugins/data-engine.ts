@@ -17,6 +17,7 @@ import { resolve } from 'node:path'
 
 const companiesSchema: CollectionSchema = {
   name: 'companies',
+  singularName: 'bedrijf',
   fields: [
     { name: 'name', type: 'text', required: true },
     {
@@ -32,6 +33,7 @@ const companiesSchema: CollectionSchema = {
 
 const contactsSchema: CollectionSchema = {
   name: 'contacts',
+  singularName: 'contact',
   fields: [
     { name: 'name', type: 'text', required: true },
     { name: 'email', type: 'email', required: true, unique: true },
@@ -43,6 +45,28 @@ const contactsSchema: CollectionSchema = {
         target: 'companies',
         type: 'manyToOne',
         foreignKey: 'company_id',
+      },
+    },
+  ],
+  metadata: { timestamps: true },
+}
+
+const actiepuntenSchema: CollectionSchema = {
+  name: 'actiepunten',
+  singularName: 'actiepunt',
+  fields: [
+    { name: 'title', type: 'text', required: true },
+    { name: 'description', type: 'text' },
+    { name: 'status', type: 'select', options: ['open', 'in_progress', 'completed', 'cancelled'] },
+    { name: 'priority', type: 'select', options: ['low', 'medium', 'high'] },
+    { name: 'due_date', type: 'date' },
+    {
+      name: 'assigned_contact',
+      type: 'relation',
+      relation: {
+        target: 'contacts',
+        type: 'manyToOne',
+        foreignKey: 'assigned_contact_id',
       },
     },
   ],
@@ -93,6 +117,33 @@ const contactsSeeds = [
   { name: 'Femke de Groot', email: 'femke@example.com', status: 'pending', company: '5' },
 ]
 
+const actiepuntenSeeds = [
+  {
+    title: 'Follow-up meeting met TechNova',
+    description: 'Plan vervolgafspraak voor Q2 planning',
+    status: 'open',
+    priority: 'high',
+    due_date: '2026-03-15',
+    assigned_contact: '1',
+  },
+  {
+    title: 'Offerte opstellen voor FinanceFlow',
+    description: 'Gedetailleerde offerte voor nieuwe software implementatie',
+    status: 'in_progress',
+    priority: 'medium',
+    due_date: '2026-03-20',
+    assigned_contact: '2',
+  },
+  {
+    title: 'Contract review MediCare Plus',
+    description: 'Juridische review van nieuwe serviceovereenkomst',
+    status: 'open',
+    priority: 'medium',
+    due_date: '2026-03-10',
+    assigned_contact: '4',
+  },
+]
+
 // ─── Plugin ──────────────────────────────────────────────────────────
 
 let instance: DataEngineInstance | null = null
@@ -138,7 +189,7 @@ export default defineNitroPlugin(async (nitroApp) => {
     }
   }
 
-  // 4. Apply default schemas (companies + contacts) — idempotent via migration manager
+  // 4. Apply default schemas (companies + contacts + actiepunten) — idempotent via migration manager
   //    Use force:true to handle schema drift (e.g. fields added/removed via builder)
   await migrationManager.applySchema(companiesSchema, { force: true })
   if (!restoredCollections.has('companies')) {
@@ -148,6 +199,11 @@ export default defineNitroPlugin(async (nitroApp) => {
   await migrationManager.applySchema(contactsSchema, { force: true })
   if (!restoredCollections.has('contacts')) {
     logger.info('[data-engine] Schema "contacts" created')
+  }
+
+  await migrationManager.applySchema(actiepuntenSchema, { force: true })
+  if (!restoredCollections.has('actiepunten')) {
+    logger.info('[data-engine] Schema "actiepunten" created')
   }
 
   // 5. Conditional seeding — only if tables are empty
@@ -165,6 +221,15 @@ export default defineNitroPlugin(async (nitroApp) => {
         await adapter.create('contacts', seed)
       }
       logger.info(`[data-engine] Seeded ${contactsSeeds.length} contacts`)
+
+      // Seed actiepunten only if contacts were also seeded (they depend on contact IDs)
+      const existingActiepunten = await adapter.findMany('actiepunten', { limit: 1 })
+      if (existingActiepunten.length === 0) {
+        for (const seed of actiepuntenSeeds) {
+          await adapter.create('actiepunten', seed)
+        }
+        logger.info(`[data-engine] Seeded ${actiepuntenSeeds.length} actiepunten`)
+      }
     }
   } else {
     logger.info('[data-engine] Data already exists, skipping seed')
@@ -179,7 +244,7 @@ export default defineNitroPlugin(async (nitroApp) => {
   logger.info('[data-engine] Webhooks initialized')
 
   // Register webhook hooks on all collections
-  const hookCollections = [...persistedNames, 'companies', 'contacts'].filter(
+  const hookCollections = [...persistedNames, 'companies', 'contacts', 'actiepunten'].filter(
     (n) => !n.startsWith('_'),
   )
   for (const col of new Set(hookCollections)) {

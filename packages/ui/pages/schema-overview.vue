@@ -129,17 +129,17 @@ function navigateToBuilder(name: string) {
     <h1 class="erd__title">Schema Overzicht</h1>
     <p class="erd__subtitle">Entity-Relationship Diagram van alle collecties</p>
 
-    <div v-if="!schemas?.length" class="erd__empty">
+    <FtpMessage v-if="!schemas?.length" severity="info">
       Geen collecties gevonden. Maak een collectie aan via de
       <NuxtLink to="/builder">Schema Builder</NuxtLink>.
-    </div>
+    </FtpMessage>
 
     <div v-else class="erd__canvas" :style="{ minWidth: svgSize.w + 'px', minHeight: svgSize.h + 'px' }">
       <!-- SVG relation lines -->
       <svg class="erd__svg" :width="svgSize.w" :height="svgSize.h">
         <defs>
           <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
-            <path d="M0,0 L8,3 L0,6" fill="var(--text-secondary, #9ea5c2)" />
+            <path d="M0,0 L8,3 L0,6" fill="var(--text-secondary)" />
           </marker>
         </defs>
         <g v-for="(rel, i) in relations" :key="i">
@@ -191,7 +191,7 @@ function navigateToBuilder(name: string) {
             <span class="erd__field-icon">{{ getTypeIcon(field.type) }}</span>
             <span class="erd__field-name">{{ field.name }}</span>
             <span v-if="field.required" class="erd__field-req">*</span>
-            <span class="erd__field-type">{{ field.type }}</span>
+            <FtpTag :value="field.type" size="sm" />
           </li>
         </ul>
       </div>
@@ -211,24 +211,14 @@ function navigateToBuilder(name: string) {
 <style scoped>
 .erd__title {
   font-size: 1.5rem;
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
   margin: 0 0 var(--space-2xs, 4px);
 }
 
 .erd__subtitle {
   font-size: 0.875rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   margin: 0 0 var(--space-l, 28px);
-}
-
-.erd__empty {
-  color: var(--text-secondary, #9ea5c2);
-  padding: var(--space-xl, 40px);
-  text-align: center;
-}
-
-.erd__empty a {
-  color: var(--intent-action-default, #f97316);
 }
 
 .erd__canvas {
@@ -255,12 +245,12 @@ function navigateToBuilder(name: string) {
 }
 
 .erd__line--hover {
-  stroke: var(--intent-action-default, #f97316);
+  stroke: var(--intent-action-default);
   stroke-width: 3;
 }
 
 .erd__card-label {
-  fill: var(--text-secondary, #9ea5c2);
+  fill: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -277,7 +267,7 @@ function navigateToBuilder(name: string) {
 
 .erd__card:hover,
 .erd__card:focus-visible {
-  border-color: var(--intent-action-default, #f97316);
+  border-color: var(--intent-action-default);
   box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
   outline: none;
 }
@@ -287,7 +277,7 @@ function navigateToBuilder(name: string) {
   padding: var(--space-xs, 6px) var(--space-s, 10px);
   font-weight: 700;
   font-size: 0.875rem;
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
   border-bottom: 1px solid var(--border-subtle, #1a2244);
   text-transform: capitalize;
 }
@@ -304,7 +294,7 @@ function navigateToBuilder(name: string) {
   gap: var(--space-2xs, 4px);
   padding: 2px var(--space-s, 10px);
   font-size: 0.8rem;
-  color: var(--text-default, #cbd0e4);
+  color: var(--text-default);
 }
 
 .erd__field-icon {
@@ -322,14 +312,8 @@ function navigateToBuilder(name: string) {
 }
 
 .erd__field-req {
-  color: var(--intent-danger-default, #ef4444);
+  color: var(--feedback-error);
   font-weight: 700;
-}
-
-.erd__field-type {
-  font-size: 0.7rem;
-  color: var(--text-secondary, #9ea5c2);
-  opacity: 0.7;
 }
 
 .erd__tooltip {
@@ -337,19 +321,19 @@ function navigateToBuilder(name: string) {
   bottom: var(--space-m, 16px);
   right: var(--space-m, 16px);
   background: var(--surface-panel, #11162d);
-  border: 1px solid var(--intent-action-default, #f97316);
+  border: 1px solid var(--intent-action-default);
   border-radius: var(--radius-default, 5px);
   padding: var(--space-s, 10px);
   display: flex;
   flex-direction: column;
   gap: 2px;
   font-size: 0.8rem;
-  color: var(--text-default, #cbd0e4);
+  color: var(--text-default);
   z-index: 100;
   pointer-events: none;
 }
 
 .erd__tooltip strong {
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
 }
 </style>

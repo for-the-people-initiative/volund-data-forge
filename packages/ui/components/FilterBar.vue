@@ -122,61 +122,62 @@ const filterableFields = computed(() =>
       !['id', 'created_at', 'updated_at'].includes(f.name),
   ),
 )
+
+// Build select options for FtpSelect
+function buildSelectOptions(options: string[]): Array<{ label: string; value: string }> {
+  return [{ label: 'Alle', value: '' }, ...options.map((opt) => ({ label: opt, value: opt }))]
+}
+
+const boolOptions = [
+  { label: 'Alle', value: '' },
+  { label: 'Waar', value: 'true' },
+  { label: 'Onwaar', value: 'false' },
+]
 </script>
 
 <template>
-  <div class="fb">
-    <div class="fb__header">
-      <button class="fb__toggle" @click="expanded = !expanded">
-        <span class="fb__title">Filters</span>
-        <span v-if="activeCount" class="fb__count">{{ activeCount }}</span>
-        <span class="fb__chevron" :class="{ 'fb__chevron--open': expanded }">▾</span>
-      </button>
-      <button v-if="activeCount" class="fb__clear" @click="clearAll">Wis filters</button>
-    </div>
+  <FtpPanel class="fb" :toggleable="true">
+    <template #header>
+      <div class="fb__header">
+        <span class="fb__title" @click="expanded = !expanded">
+          Filters
+          <FtpBadge v-if="activeCount" :value="String(activeCount)" severity="warn" />
+        </span>
+        <FtpButton v-if="activeCount" label="Wis filters" variant="secondary" size="sm" @click.stop="clearAll" />
+      </div>
+    </template>
 
-    <div v-if="expanded" class="fb__grid">
+    <div class="fb__grid">
       <div v-for="field in filterableFields" :key="field.name" class="fb__field">
         <label :for="`fb-${field.name}`" class="fb__label">{{ field.label ?? field.name }}</label>
 
         <!-- Select -->
-        <select
+        <FtpSelect
           v-if="field.type === 'select' && field.options?.length"
           :id="`fb-${field.name}`"
-          class="fb__input fb__select"
-          :value="getSelectValue(field.name)"
-          @change="
+          :model-value="getSelectValue(field.name)"
+          :options="buildSelectOptions(field.options!)"
+          @update:model-value="
             updateFilter(
               field.name,
-              ($event.target as HTMLSelectElement).value
-                ? { operator: 'eq', value: ($event.target as HTMLSelectElement).value }
-                : null,
+              $event ? { operator: 'eq', value: $event } : null,
             )
           "
-        >
-          <option value="">Alle</option>
-          <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
-        </select>
+        />
 
         <!-- Boolean -->
-        <select
+        <FtpSelect
           v-else-if="field.type === 'boolean'"
           :id="`fb-${field.name}`"
-          class="fb__input fb__select"
-          :value="getBoolValue(field.name)"
-          @change="
+          :model-value="getBoolValue(field.name)"
+          :options="boolOptions"
+          @update:model-value="
             updateFilter(
               field.name,
-              ($event.target as HTMLSelectElement).value !== ''
-                ? { operator: 'eq', value: ($event.target as HTMLSelectElement).value === 'true' }
-                : null,
+              $event !== '' ? { operator: 'eq', value: $event === 'true' } : null,
             )
           "
-        >
-          <option value="">Alle</option>
-          <option value="true">Waar</option>
-          <option value="false">Onwaar</option>
-        </select>
+        />
 
         <!-- Date -->
         <div v-else-if="field.type === 'date' || field.type === 'datetime'" class="fb__date-range">
@@ -184,9 +185,8 @@ const filterableFields = computed(() =>
           <input
             :id="`fb-${field.name}-from`"
             type="date"
-            class="fb__input fb__date"
+            class="fb__date-input"
             :value="getDateFrom(field.name)"
-            placeholder="Van"
             @input="
               updateDateRange(
                 field.name,
@@ -200,9 +200,8 @@ const filterableFields = computed(() =>
           <input
             :id="`fb-${field.name}-to`"
             type="date"
-            class="fb__input fb__date"
+            class="fb__date-input"
             :value="getDateTo(field.name)"
-            placeholder="Tot"
             @input="
               updateDateRange(
                 field.name,
@@ -214,160 +213,102 @@ const filterableFields = computed(() =>
         </div>
 
         <!-- Number -->
-        <input
+        <FtpInputText
           v-else-if="['integer', 'float', 'number'].includes(field.type)"
           :id="`fb-${field.name}`"
-          type="number"
-          class="fb__input"
-          :value="getTextValue(field.name)"
-          :placeholder="`Filter ${field.label ?? field.name}...`"
-          @input="updateNumberFilter(field.name, ($event.target as HTMLInputElement).value)"
+          :model-value="getTextValue(field.name)"
+          @update:model-value="updateNumberFilter(field.name, $event)"
         />
 
         <!-- Text (default) -->
-        <input
+        <FtpInputText
           v-else
           :id="`fb-${field.name}`"
-          type="text"
-          class="fb__input"
-          :value="getTextValue(field.name)"
-          :placeholder="`Filter ${field.label ?? field.name}...`"
-          @input="updateTextFilter(field.name, ($event.target as HTMLInputElement).value)"
+          :model-value="getTextValue(field.name)"
+          @update:model-value="updateTextFilter(field.name, $event)"
         />
       </div>
     </div>
-  </div>
+  </FtpPanel>
 </template>
 
 <style scoped>
-.fb {
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-rounded, 8px);
-  padding: var(--space-s, 10px) var(--space-m, 16px);
-}
-
 .fb__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.fb__toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs, 6px);
-  background: none;
-  border: none;
-  color: var(--text-default, #fff);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
+  width: 100%;
 }
 
 .fb__title {
-  color: var(--text-secondary, #9ea5c2);
-}
-
-.fb__count {
-  background: var(--intent-action-default, #f97316);
-  color: #fff;
-  font-size: 0.6875rem;
-  padding: 1px 6px;
-  border-radius: var(--radius-pill, 9999px);
-  font-weight: 700;
-}
-
-.fb__chevron {
-  color: var(--text-subtle, #525d8f);
-  font-size: 0.75rem;
-  transition: transform 0.15s;
-}
-
-.fb__chevron--open {
-  transform: rotate(0deg);
-}
-
-.fb__chevron:not(.fb__chevron--open) {
-  transform: rotate(-90deg);
-}
-
-.fb__clear {
-  background: none;
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
-  font-size: 0.75rem;
-  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--text-secondary);
+  font-size: var(--text-sm, 0.875rem);
+  font-weight: 600;
   cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
-}
-
-.fb__clear:hover {
-  color: var(--feedback-error, #ef4444);
-  border-color: var(--feedback-error, #ef4444);
 }
 
 .fb__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: var(--space-s, 10px);
-  margin-top: var(--space-s, 10px);
+  gap: var(--space-s);
 }
 
 .fb__field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3xs, 2px);
+  gap: var(--space-3xs);
 }
 
 .fb__label {
   font-size: 0.6875rem;
-  color: var(--text-subtle, #525d8f);
-  text-transform: uppercase;
+  color: var(--text-subtle);
+  text-transform: capitalize;
   letter-spacing: 0.03em;
-}
-
-.fb__input {
-  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  font-size: 0.8125rem;
-  outline: none;
-  height: 30px;
-}
-
-.fb__input:focus {
-  border-color: var(--border-focus, #f97316);
-}
-
-.fb__input::placeholder {
-  color: var(--text-subtle, #525d8f);
-}
-
-.fb__select {
-  appearance: none;
-  cursor: pointer;
 }
 
 .fb__date-range {
   display: flex;
   align-items: center;
-  gap: var(--space-3xs, 2px);
+  gap: var(--space-3xs);
 }
 
-.fb__date {
+/* Native date input — no FTP equivalent */
+.fb__date-input {
   flex: 1;
   min-width: 0;
+  padding: var(--space-3xs) var(--space-xs);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-default);
+  color: var(--text-default);
+  font-size: var(--text-sm, 0.8125rem);
+  outline: none;
+  height: 30px;
+}
+
+/* Override FTP component styles for light backgrounds */
+.fb__field :deep(.input-text),
+.fb__field :deep(.input-text input),
+.fb__field :deep(.select-wrapper),
+.fb__field :deep(.select-wrapper .select) {
+  background: var(--surface-panel) !important;
+  color: var(--text-default) !important;
+}
+
+.fb__field :deep(.input-text::placeholder),
+.fb__field :deep(.input-text input::placeholder) {
+  color: var(--text-subtle) !important;
+}
+
+.fb__date-input:focus {
+  border-color: var(--border-focus);
 }
 
 .fb__date-sep {
-  color: var(--text-subtle, #525d8f);
+  color: var(--text-subtle);
   font-size: 0.75rem;
 }
 
@@ -383,14 +324,6 @@ const filterableFields = computed(() =>
   border: 0;
 }
 
-.fb__input:focus-visible,
-.fb__toggle:focus-visible,
-.fb__clear:focus-visible {
-  outline: 2px solid var(--border-focus, #f97316);
-  outline-offset: 2px;
-}
-
-/* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {
   .fb__grid {
     grid-template-columns: 1fr;

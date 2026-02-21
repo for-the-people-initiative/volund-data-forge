@@ -4,26 +4,41 @@ definePageMeta({ layout: 'data-engine' })
 const route = useRoute()
 const collection = computed(() => route.params.collection as string)
 
+const { schema } = useSchema(collection.value)
+
+// Fallback labels for backward compatibility
 const labels: Record<string, string> = {
   contacts: 'Contacten',
   companies: 'Bedrijven',
 }
+
+const capitalize = (str: string) => {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+const collectionName = computed(() => {
+  const name = (schema.value as any)?.name || labels[collection.value] || collection.value
+  return capitalize(name)
+})
+
+const singularName = computed(() => {
+  const name = (schema.value as any)?.singularName || labels[collection.value] || collection.value
+  return capitalize(name)
+})
 </script>
 
 <template>
   <div>
     <div class="collection-header">
-      <h1 class="collection-header__title">{{ labels[collection] ?? collection }}</h1>
+      <h1 class="collection-header__title">{{ collectionName }}</h1>
       <div class="collection-header__actions">
-        <NuxtLink
-          :to="`/builder?collection=${collection}`"
-          class="collection-header__btn collection-header__btn--edit"
-        >
-          ✎ Bewerken
+        <NuxtLink :to="`/builder?collection=${collection}`">
+          <FtpButton label="✎ Schema bewerken" variant="secondary" size="sm" />
         </NuxtLink>
-        <NuxtLink :to="`/collections/${collection}/new`" class="collection-header__btn"
-          >+ Nieuw</NuxtLink
-        >
+        <NuxtLink :to="`/collections/${collection}/new`">
+          <FtpButton :label="`${singularName} toevoegen`" variant="primary" size="sm" />
+        </NuxtLink>
       </div>
     </div>
     <NuxtErrorBoundary>
@@ -44,37 +59,12 @@ const labels: Record<string, string> = {
 }
 
 .collection-header__title {
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
   margin: 0;
 }
 
 .collection-header__actions {
   display: flex;
   gap: var(--space-s, 10px);
-}
-
-.collection-header__btn {
-  padding: var(--space-xs, 6px) var(--space-m, 16px);
-  background: var(--intent-action-default, #f97316);
-  color: var(--text-inverse, #000);
-  border-radius: var(--radius-default, 5px);
-  text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: background 0.15s;
-}
-
-.collection-header__btn:hover {
-  background: var(--intent-action-hover, #ea580c);
-}
-
-.collection-header__btn--edit {
-  background: var(--surface-interactive, #232a4d);
-  color: var(--text-default, #fff);
-  border: 1px solid var(--border-subtle, #1a2244);
-}
-
-.collection-header__btn--edit:hover {
-  background: var(--surface-hover, #2d3566);
 }
 </style>

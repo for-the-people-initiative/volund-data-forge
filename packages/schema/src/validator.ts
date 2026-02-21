@@ -36,6 +36,13 @@ export function validateSchema(
     errors.push({ path: 'name', message: nameError })
   }
 
+  // Singular name validation
+  if (schema.singularName === undefined || schema.singularName === null) {
+    errors.push({ path: 'singularName', message: 'Singular name is required' })
+  } else if (typeof schema.singularName !== 'string' || schema.singularName.trim() === '') {
+    errors.push({ path: 'singularName', message: 'Singular name must be a non-empty string' })
+  }
+
   if (!schema.fields || !Array.isArray(schema.fields)) {
     errors.push({ path: 'fields', message: 'Fields must be an array' })
     return errors

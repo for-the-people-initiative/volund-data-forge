@@ -12,6 +12,7 @@ import { DataEngine, EngineError } from '@data-engine/engine';
 
 const companiesSchema: CollectionSchema = {
   name: 'companies',
+  singularName: 'company',
   fields: [
     { name: 'name', type: 'text', required: true },
     { name: 'industry', type: 'text' },
@@ -20,6 +21,7 @@ const companiesSchema: CollectionSchema = {
 
 const contactsSchema: CollectionSchema = {
   name: 'contacts',
+  singularName: 'contact',
   fields: [
     { name: 'first_name', type: 'text', required: true },
     { name: 'last_name', type: 'text', required: true },

@@ -17,6 +17,7 @@ describe('Migration System Integration (Forward-Only)', () => {
 
   const schemaV1: CollectionSchema = {
     name: 'posts',
+    singularName: 'post',
     fields: [
       { name: 'title', type: 'text', required: true },
       { name: 'body', type: 'text' },
@@ -25,6 +26,7 @@ describe('Migration System Integration (Forward-Only)', () => {
 
   const schemaV2: CollectionSchema = {
     name: 'posts',
+    singularName: 'post',
     fields: [
       { name: 'title', type: 'text', required: true },
       { name: 'body', type: 'text' },
@@ -144,6 +146,7 @@ describe('Migration System Integration (Forward-Only)', () => {
   it('should import a new schema via importSchema', async () => {
     const tasksSchema: CollectionSchema = {
       name: 'tasks',
+      singularName: 'task',
       fields: [
         { name: 'description', type: 'text', required: true },
         { name: 'done', type: 'boolean' },
@@ -166,6 +169,7 @@ describe('Migration System Integration (Forward-Only)', () => {
   it('should return planned operations in dry-run mode without changing DB', async () => {
     const schemaWithPhone: CollectionSchema = {
       name: 'posts',
+      singularName: 'post',
       fields: [
         { name: 'title', type: 'text', required: true },
         { name: 'body', type: 'text' },

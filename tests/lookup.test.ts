@@ -12,6 +12,7 @@ describe('Lookup Resolution', () => {
 
   const companiesSchema: CollectionSchema = {
     name: 'companies',
+    singularName: 'company',
     fields: [
       { name: 'name', type: 'text', required: true },
       { name: 'city', type: 'text' },
@@ -20,6 +21,7 @@ describe('Lookup Resolution', () => {
 
   const contactsSchema: CollectionSchema = {
     name: 'contacts',
+    singularName: 'contact',
     fields: [
       { name: 'first_name', type: 'text', required: true },
       { name: 'company', type: 'relation', relation: { target: 'companies', type: 'manyToOne', foreignKey: 'company' } },

@@ -38,6 +38,16 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
   }
 
   // --- API Integration ---
+  async function loadAllSchemas() {
+    try {
+      const schemas = await $fetch<CollectionSchema[]>('/api/schema')
+      collections.value = schemas || []
+    } catch (err: any) {
+      const msg = err?.data?.error?.message || err?.message || 'Kon schema\'s niet laden'
+      showFeedback('error', msg)
+    }
+  }
+
   async function loadSchema(collectionName: string) {
     isLoading.value = true
     try {
@@ -304,9 +314,14 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
   // --- Init ---
   function init() {
     setupUnsavedGuard()
-    if (options?.initialCollection) {
-      onMounted(() => loadSchema(options.initialCollection!))
-    }
+    
+    // Load all schemas on initialization
+    onMounted(async () => {
+      await loadAllSchemas()
+      if (options?.initialCollection) {
+        await loadSchema(options.initialCollection)
+      }
+    })
   }
 
   return {
@@ -326,6 +341,7 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
     // Feedback
     clearFeedback,
     // API
+    loadAllSchemas,
     loadSchema,
     saveSchema,
     deleteSchema,

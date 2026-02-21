@@ -3,14 +3,30 @@ definePageMeta({ layout: 'data-engine' })
 
 const route = useRoute()
 const collection = computed(() => route.params.collection as string)
+
+const { schema } = useSchema(collection.value)
+
+const capitalize = (str: string) => {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+const singularName = computed(() => {
+  const name = (schema.value as any)?.singularName || collection.value
+  return capitalize(name)
+})
+
+const capitalizedCollection = computed(() => {
+  return capitalize(collection.value)
+})
 </script>
 
 <template>
   <div>
-    <NuxtLink :to="`/collections/${collection}`" class="back-link"
-      >← Terug naar {{ collection }}</NuxtLink
-    >
-    <h1>Nieuw {{ collection }} record</h1>
+    <NuxtLink :to="`/collections/${collection}`">
+      <FtpButton :label="`← Terug naar ${capitalizedCollection}`" variant="secondary" size="sm" />
+    </NuxtLink>
+    <h1>{{ singularName }} toevoegen</h1>
     <NuxtErrorBoundary>
       <DataForm :collection="collection" />
       <template #error="{ error, clearError }">
@@ -21,14 +37,6 @@ const collection = computed(() => route.params.collection as string)
 </template>
 
 <style scoped>
-.back-link {
-  color: var(--text-link);
-  text-decoration: none;
-  font-size: 0.875rem;
-}
-.back-link:hover {
-  color: var(--text-linkHover);
-}
 h1 {
   color: var(--text-heading);
   margin: var(--space-s) 0 var(--space-m);

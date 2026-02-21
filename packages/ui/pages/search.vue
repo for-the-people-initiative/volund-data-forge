@@ -14,7 +14,6 @@ function capitalize(name: string) {
 }
 
 function getRecordLabel(record: Record<string, unknown>): string {
-  // Try common label fields
   for (const key of ['name', 'title', 'label', 'email', 'subject']) {
     if (record[key] && typeof record[key] === 'string') return record[key] as string
   }
@@ -50,7 +49,6 @@ function onInput(value: string) {
   debounceTimer = setTimeout(() => doSearch(value), 300)
 }
 
-// Search on mount if query param present
 onMounted(() => {
   if (searchQuery.value) doSearch(searchQuery.value)
 })
@@ -60,13 +58,10 @@ onMounted(() => {
   <div class="search-page">
     <h1>🔍 Zoeken</h1>
 
-    <input
-      type="search"
-      class="search-page__input"
+    <FtpInputText
+      :model-value="searchQuery"
       placeholder="Zoek in alle collecties..."
-      :value="searchQuery"
-      @input="onInput(($event.target as HTMLInputElement).value)"
-      autofocus
+      @update:model-value="onInput"
     />
 
     <div v-if="loading" class="search-page__loading">Zoeken...</div>
@@ -101,25 +96,14 @@ onMounted(() => {
   max-width: 700px;
 }
 
-.search-page__input {
+.search-page :deep(.input-text) {
   width: 100%;
-  padding: var(--space-s, 10px) var(--space-m, 16px);
-  font-size: 1rem;
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
   margin-bottom: var(--space-l, 28px);
-}
-
-.search-page__input:focus {
-  outline: 2px solid var(--border-focus, #f97316);
-  outline-offset: 2px;
 }
 
 .search-page__loading,
 .search-page__empty {
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   padding: var(--space-m, 16px) 0;
 }
 
@@ -130,12 +114,12 @@ onMounted(() => {
 .search-page__group-title {
   font-size: 1rem;
   margin-bottom: var(--space-s, 10px);
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
 }
 
 .search-page__group-count {
   font-size: 0.8rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-weight: normal;
 }
 
@@ -152,7 +136,7 @@ onMounted(() => {
   display: block;
   padding: var(--space-xs, 6px) var(--space-s, 10px);
   border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
+  color: var(--text-default);
   text-decoration: none;
   background: var(--surface-panel, #11162d);
   transition: background 0.15s;

@@ -7,7 +7,21 @@ const id = computed(() => route.params.id as string)
 
 const router = useRouter()
 const { getRecord, deleteRecord } = useDataEngine()
-const { fields } = useSchema(collection.value)
+const { fields, schema } = useSchema(collection.value)
+
+const capitalize = (str: string) => {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+const singularName = computed(() => {
+  const name = (schema.value as any)?.singularName || collection.value
+  return capitalize(name)
+})
+
+const capitalizedCollection = computed(() => {
+  return capitalize(collection.value)
+})
 
 const editing = ref(false)
 const showDeleteConfirm = ref(false)
@@ -26,7 +40,7 @@ const loading = computed(() => recordStatus.value === 'pending')
 
 function onSuccess(_updated: Record<string, unknown>) {
   editing.value = false
-  refreshRecord() // refresh from server
+  refreshRecord()
 }
 
 const deleteError = ref('')
@@ -53,15 +67,13 @@ function fieldLabel(name: string) {
 <template>
   <div>
     <NuxtLink :to="`/collections/${collection}`" class="back-link"
-      >← Terug naar {{ collection }}</NuxtLink
+      >← Terug naar {{ capitalizedCollection }}</NuxtLink
     >
 
     <div class="detail-header">
-      <h1>{{ collection }} / {{ id }}</h1>
-      <button v-if="!editing" class="edit-btn" @click="editing = true">Bewerken</button>
-      <button v-if="!editing" class="delete-btn" @click="showDeleteConfirm = true">
-        Verwijderen
-      </button>
+      <h1>{{ singularName }} bewerken</h1>
+      <FtpButton v-if="!editing" label="Bewerken" variant="secondary" size="sm" @click="editing = true" />
+      <FtpButton v-if="!editing" label="Verwijderen" variant="secondary" size="sm" class="delete-btn" @click="showDeleteConfirm = true" />
     </div>
 
     <div v-if="loading" class="loading">Laden...</div>
@@ -92,28 +104,34 @@ function fieldLabel(name: string) {
     <div v-else class="error">Record niet gevonden.</div>
 
     <!-- Delete confirmation -->
-    <Teleport to="body">
-      <div v-if="showDeleteConfirm" class="delete-overlay" @click.self="showDeleteConfirm = false">
-        <div class="delete-dialog">
-          <p>Weet je zeker dat je dit record wilt verwijderen?</p>
-          <p v-if="deleteError" style="color: var(--feedback-error, #ef4444); font-size: 0.8125rem">
-            {{ deleteError }}
-          </p>
-          <div class="delete-dialog-actions">
-            <button
-              class="delete-dialog-cancel"
-              @click="showDeleteConfirm = false"
-              :disabled="deleting"
-            >
-              Annuleren
-            </button>
-            <button class="delete-dialog-confirm" @click="handleDelete" :disabled="deleting">
-              {{ deleting ? 'Bezig...' : 'Verwijderen' }}
-            </button>
-          </div>
+    <FtpDialog
+      :visible="showDeleteConfirm"
+      header="Record verwijderen"
+      :modal="true"
+      @update:visible="showDeleteConfirm = $event"
+    >
+      <p>Weet je zeker dat je deze {{ singularName }} wilt verwijderen?</p>
+      <p v-if="deleteError" style="color: var(--feedback-error); font-size: 0.8125rem">
+        {{ deleteError }}
+      </p>
+      <template #footer>
+        <div class="delete-dialog-actions">
+          <FtpButton
+            label="Annuleren"
+            variant="secondary"
+            :is-disabled="deleting"
+            @click="showDeleteConfirm = false"
+          />
+          <FtpButton
+            :label="deleting ? 'Bezig...' : 'Verwijderen'"
+            variant="primary"
+            :is-disabled="deleting"
+            class="delete-confirm-btn"
+            @click="handleDelete"
+          />
         </div>
-      </div>
-    </Teleport>
+      </template>
+    </FtpDialog>
   </div>
 </template>
 
@@ -136,79 +154,12 @@ function fieldLabel(name: string) {
   color: var(--text-heading);
   margin: 0;
 }
-.edit-btn {
-  padding: var(--space-2xs) var(--space-s);
-  background: var(--intent-secondary-default);
-  color: var(--text-secondary);
-  border: 1px solid var(--intent-secondary-border);
-  border-radius: var(--radius-default);
-  cursor: pointer;
-  font-size: 0.875rem;
+.delete-btn :deep(.button) {
+  color: var(--feedback-error);
+  border-color: var(--feedback-error);
 }
-.edit-btn:hover {
-  background: var(--intent-secondary-hover);
-}
-.delete-btn {
-  padding: var(--space-2xs) var(--space-s);
-  background: none;
-  color: var(--feedback-error, #ef4444);
-  border: 1px solid var(--feedback-error, #ef4444);
-  border-radius: var(--radius-default);
-  cursor: pointer;
-  font-size: 0.875rem;
-  opacity: 0.7;
-  transition: opacity 0.15s;
-}
-.delete-btn:hover {
-  opacity: 1;
-}
-.delete-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.delete-dialog {
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-rounded, 8px);
-  padding: var(--space-l, 24px);
-  max-width: 400px;
-  width: 90%;
-  color: var(--text-default, #fff);
-}
-.delete-dialog p {
-  margin: 0 0 var(--space-m, 16px);
-  line-height: 1.5;
-}
-.delete-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-s, 10px);
-}
-.delete-dialog-cancel {
-  padding: var(--space-2xs, 4px) var(--space-s, 10px);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
-  cursor: pointer;
-}
-.delete-dialog-confirm {
-  padding: var(--space-2xs, 4px) var(--space-s, 10px);
-  background: var(--feedback-error, #ef4444);
-  border: none;
-  border-radius: var(--radius-default, 5px);
-  color: #fff;
-  cursor: pointer;
-}
-.delete-dialog-confirm:disabled,
-.delete-dialog-cancel:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.delete-confirm-btn :deep(.button) {
+  background: var(--feedback-error);
 }
 .loading,
 .error {
@@ -230,5 +181,10 @@ function fieldLabel(name: string) {
 .detail-list dd {
   color: var(--text-default);
   margin: 0;
+}
+.delete-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-s, 10px);
 }
 </style>

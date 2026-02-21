@@ -20,48 +20,14 @@
     <section class="about__section">
       <h2 class="about__heading">Features</h2>
       <div class="about__features">
-        <div class="about__feature">
-          <span class="about__feature-icon">🏗️</span>
-          <div>
-            <strong>Visual Schema Builder</strong>
-            <p>Datamodel samenklikken via een visuele interface.</p>
-          </div>
-        </div>
-        <div class="about__feature">
-          <span class="about__feature-icon">📊</span>
-          <div>
-            <strong>DataTable</strong>
-            <p>Automatisch gegenereerde tabellen uit je schema.</p>
-          </div>
-        </div>
-        <div class="about__feature">
-          <span class="about__feature-icon">📝</span>
-          <div>
-            <strong>DataForm</strong>
-            <p>Slimme formulieren die meegroeien met je datamodel.</p>
-          </div>
-        </div>
-        <div class="about__feature">
-          <span class="about__feature-icon">🔗</span>
-          <div>
-            <strong>Koppelingen</strong>
-            <p>Relaties tussen data leggen zonder technische kennis.</p>
-          </div>
-        </div>
-        <div class="about__feature">
-          <span class="about__feature-icon">🔄</span>
-          <div>
-            <strong>Migraties</strong>
-            <p>Schema wijzigingen doorvoeren zonder dataverlies.</p>
-          </div>
-        </div>
-        <div class="about__feature">
-          <span class="about__feature-icon">🎨</span>
-          <div>
-            <strong>FTP Design System</strong>
-            <p>Consistent en mooi, van componenten tot tokens.</p>
-          </div>
-        </div>
+        <FtpCard v-for="feature in features" :key="feature.title">
+          <template #title>
+            <span>{{ feature.icon }} {{ feature.title }}</span>
+          </template>
+          <template #content>
+            <p class="about__feature-desc">{{ feature.desc }}</p>
+          </template>
+        </FtpCard>
       </div>
     </section>
 
@@ -69,10 +35,7 @@
     <section class="about__section">
       <h2 class="about__heading">Technologie</h2>
       <div class="about__tags">
-        <span class="about__tag">Vue 3</span>
-        <span class="about__tag">Nuxt</span>
-        <span class="about__tag">TypeScript</span>
-        <span class="about__tag">SQLite</span>
+        <FtpTag v-for="tech in ['Vue 3', 'Nuxt', 'TypeScript', 'SQLite']" :key="tech" :value="tech" />
       </div>
     </section>
 
@@ -80,7 +43,7 @@
     <section class="about__section">
       <h2 class="about__heading">Status</h2>
       <p class="about__text">
-        <span class="about__badge">Alpha</span>
+        <FtpBadge value="Alpha" severity="info" />
         Volund Data Forge is in actieve ontwikkeling. Verwacht veranderingen, verbeteringen en af en
         toe wat ruwe randjes.
       </p>
@@ -97,6 +60,17 @@
     </section>
   </div>
 </template>
+
+<script setup lang="ts">
+const features = [
+  { icon: '🏗️', title: 'Visual Schema Builder', desc: 'Datamodel samenklikken via een visuele interface.' },
+  { icon: '📊', title: 'DataTable', desc: 'Automatisch gegenereerde tabellen uit je schema.' },
+  { icon: '📝', title: 'DataForm', desc: 'Slimme formulieren die meegroeien met je datamodel.' },
+  { icon: '🔗', title: 'Koppelingen', desc: 'Relaties tussen data leggen zonder technische kennis.' },
+  { icon: '🔄', title: 'Migraties', desc: 'Schema wijzigingen doorvoeren zonder dataverlies.' },
+  { icon: '🎨', title: 'FTP Design System', desc: 'Consistent en mooi, van componenten tot tokens.' },
+]
+</script>
 
 <style scoped>
 .about {
@@ -115,13 +89,13 @@
 
 .about__title {
   font-size: 2rem;
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
   margin: 0 0 var(--space-xs, 6px);
 }
 
 .about__tagline {
   font-size: 1.125rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -133,12 +107,12 @@
 
 .about__heading {
   font-size: 1.25rem;
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
   margin: 0;
 }
 
 .about__text {
-  color: var(--text-default, #c5cbdf);
+  color: var(--text-default);
   line-height: 1.6;
   margin: 0;
 }
@@ -149,55 +123,16 @@
   gap: var(--space-s, 10px);
 }
 
-.about__feature {
-  display: flex;
-  gap: var(--space-s, 10px);
-  padding: var(--space-s, 10px) var(--space-m, 16px);
-  background: var(--surface-panel, #11162d);
-  border-radius: var(--radius-default, 5px);
-  border: 1px solid var(--border-subtle, #1a2244);
-}
-
-.about__feature-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-}
-
-.about__feature p {
-  margin: var(--space-3xs, 2px) 0 0;
-  color: var(--text-secondary, #9ea5c2);
+.about__feature-desc {
+  margin: 0;
+  color: var(--text-secondary);
   font-size: 0.875rem;
-}
-
-.about__feature strong {
-  color: var(--text-heading, #fff);
 }
 
 .about__tags {
   display: flex;
   gap: var(--space-xs, 6px);
   flex-wrap: wrap;
-}
-
-.about__tag {
-  padding: var(--space-2xs, 4px) var(--space-s, 10px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-subtle, #1a2244);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
-  font-size: 0.8125rem;
-}
-
-.about__badge {
-  display: inline-block;
-  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
-  background: var(--accent-primary, #4f6df5);
-  border-radius: var(--radius-default, 5px);
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  margin-right: var(--space-xs, 6px);
 }
 
 /* ─── Mobile < 768px ─── */

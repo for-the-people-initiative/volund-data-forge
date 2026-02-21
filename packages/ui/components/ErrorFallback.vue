@@ -7,7 +7,7 @@ const emit = defineEmits<{ retry: [] }>()
   <div class="error-fallback">
     <div class="error-fallback__icon">⚠️</div>
     <p class="error-fallback__text">{{ label || 'Dit onderdeel' }} kon niet worden geladen.</p>
-    <button class="error-fallback__button" @click="emit('retry')">Probeer opnieuw</button>
+    <FtpButton label="Probeer opnieuw" size="sm" @click="emit('retry')" />
   </div>
 </template>
 
@@ -29,22 +29,8 @@ const emit = defineEmits<{ retry: [] }>()
 }
 
 .error-fallback__text {
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-size: 0.875rem;
   margin: 0;
-}
-
-.error-fallback__button {
-  padding: var(--space-2xs, 4px) var(--space-m, 16px);
-  background: var(--color-primary, #6366f1);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-default, 5px);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.error-fallback__button:hover {
-  opacity: 0.85;
 }
 </style>

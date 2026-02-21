@@ -72,6 +72,7 @@ export interface CollectionMetadata {
 /** Complete collection schema */
 export interface CollectionSchema {
   name: string
+  singularName: string
   fields: FieldDefinition[]
   relations?: RelationDefinition[]
   hooks?: HookReference[]

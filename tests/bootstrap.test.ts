@@ -10,6 +10,7 @@ import { ConfigError, createConsoleLogger, createSilentLogger } from '@data-engi
 
 const testSchema: CollectionSchema = {
   name: 'tasks',
+  singularName: 'task',
   fields: [
     { name: 'title', type: 'text', required: true },
     { name: 'done', type: 'boolean', default: false },

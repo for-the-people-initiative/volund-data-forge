@@ -10,6 +10,7 @@ describe('Schema Validation', () => {
   it('valid schema passes', () => {
     const schema: CollectionSchema = {
       name: 'products',
+      singularName: 'product',
       fields: [
         { name: 'title', type: 'text', required: true },
         { name: 'price', type: 'float' },
@@ -19,14 +20,32 @@ describe('Schema Validation', () => {
   });
 
   it('empty collection name rejected', () => {
-    const schema: CollectionSchema = { name: '', fields: [{ name: 'x', type: 'text' }] };
+    const schema: CollectionSchema = { name: '', singularName: 'item', fields: [{ name: 'x', type: 'text' }] };
     const errors = validateSchema(schema);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors.some(e => e.path === 'name')).toBe(true);
   });
 
+  it('missing singularName rejected', () => {
+    const schema: CollectionSchema = { name: 'items', fields: [{ name: 'x', type: 'text' }] } as any;
+    const errors = validateSchema(schema);
+    expect(errors.some(e => e.path === 'singularName' && e.message.includes('required'))).toBe(true);
+  });
+
+  it('empty singularName rejected', () => {
+    const schema: CollectionSchema = { name: 'items', singularName: '', fields: [{ name: 'x', type: 'text' }] };
+    const errors = validateSchema(schema);
+    expect(errors.some(e => e.path === 'singularName' && e.message.includes('non-empty'))).toBe(true);
+  });
+
+  it('whitespace-only singularName rejected', () => {
+    const schema: CollectionSchema = { name: 'items', singularName: '   ', fields: [{ name: 'x', type: 'text' }] };
+    const errors = validateSchema(schema);
+    expect(errors.some(e => e.path === 'singularName' && e.message.includes('non-empty'))).toBe(true);
+  });
+
   it('invalid collection name format rejected', () => {
-    const schema: CollectionSchema = { name: 'My Collection!', fields: [{ name: 'x', type: 'text' }] };
+    const schema: CollectionSchema = { name: 'My Collection!', singularName: 'item', fields: [{ name: 'x', type: 'text' }] };
     const errors = validateSchema(schema);
     expect(errors.some(e => e.message.includes('lowercase'))).toBe(true);
   });
@@ -34,6 +53,7 @@ describe('Schema Validation', () => {
   it('reserved field name "id" rejected', () => {
     const schema: CollectionSchema = {
       name: 'bad',
+      singularName: 'bad_item',
       fields: [{ name: 'id', type: 'text' }],
     };
     const errors = validateSchema(schema);
@@ -43,6 +63,7 @@ describe('Schema Validation', () => {
   it('reserved field name "created_at" rejected', () => {
     const schema: CollectionSchema = {
       name: 'bad',
+      singularName: 'bad_item',
       fields: [{ name: 'created_at', type: 'text' }],
     };
     const errors = validateSchema(schema);
@@ -52,6 +73,7 @@ describe('Schema Validation', () => {
   it('reserved field name "updated_at" rejected', () => {
     const schema: CollectionSchema = {
       name: 'bad',
+      singularName: 'bad_item',
       fields: [{ name: 'updated_at', type: 'text' }],
     };
     const errors = validateSchema(schema);
@@ -61,6 +83,7 @@ describe('Schema Validation', () => {
   it('duplicate field names rejected', () => {
     const schema: CollectionSchema = {
       name: 'dupes',
+      singularName: 'dupe',
       fields: [
         { name: 'title', type: 'text' },
         { name: 'title', type: 'text' },
@@ -73,6 +96,7 @@ describe('Schema Validation', () => {
   it('unknown field type rejected', () => {
     const schema: CollectionSchema = {
       name: 'bad_type',
+      singularName: 'bad_item',
       fields: [{ name: 'x', type: 'unicorn' }],
     };
     const errors = validateSchema(schema);
@@ -82,6 +106,7 @@ describe('Schema Validation', () => {
   it('relation field must have relation definition', () => {
     const schema: CollectionSchema = {
       name: 'no_rel_def',
+      singularName: 'item',
       fields: [{ name: 'owner', type: 'relation' }],
     };
     const errors = validateSchema(schema);
@@ -91,6 +116,7 @@ describe('Schema Validation', () => {
   it('relation field must have valid target', () => {
     const schema: CollectionSchema = {
       name: 'bad_target',
+      singularName: 'bad_item',
       fields: [
         { name: 'owner', type: 'relation', relation: { target: 'nonexistent', type: 'manyToOne' } },
       ],
@@ -102,6 +128,7 @@ describe('Schema Validation', () => {
   it('self-referential relation is allowed', () => {
     const schema: CollectionSchema = {
       name: 'categories',
+      singularName: 'category',
       fields: [
         { name: 'title', type: 'text' },
         { name: 'parent', type: 'relation', relation: { target: 'categories', type: 'manyToOne' } },
@@ -114,6 +141,7 @@ describe('Schema Validation', () => {
   it('lookup field must reference existing relation field', () => {
     const schema: CollectionSchema = {
       name: 'bad_lookup',
+      singularName: 'bad_item',
       fields: [
         { name: 'title', type: 'text' },
         { name: 'lookup_val', type: 'lookup', lookup: { relation: 'missing_rel', field: 'name' } },
@@ -126,6 +154,7 @@ describe('Schema Validation', () => {
   it('lookup referencing non-relation field is rejected', () => {
     const schema: CollectionSchema = {
       name: 'bad_lookup2',
+      singularName: 'bad_item',
       fields: [
         { name: 'title', type: 'text' },
         { name: 'lookup_val', type: 'lookup', lookup: { relation: 'title', field: 'name' } },
@@ -138,6 +167,7 @@ describe('Schema Validation', () => {
   it('select field must have options', () => {
     const schema: CollectionSchema = {
       name: 'no_opts',
+      singularName: 'no_opt',
       fields: [{ name: 'color', type: 'select' }],
     };
     const errors = validateSchema(schema);
@@ -147,6 +177,7 @@ describe('Schema Validation', () => {
   it('field without name is rejected', () => {
     const schema: CollectionSchema = {
       name: 'no_field_name',
+      singularName: 'no_field_item',
       fields: [{ name: '', type: 'text' }],
     };
     const errors = validateSchema(schema);
@@ -156,6 +187,7 @@ describe('Schema Validation', () => {
   it('field without type is rejected', () => {
     const schema: CollectionSchema = {
       name: 'no_field_type',
+      singularName: 'no_type_item',
       fields: [{ name: 'x', type: '' }],
     };
     const errors = validateSchema(schema);

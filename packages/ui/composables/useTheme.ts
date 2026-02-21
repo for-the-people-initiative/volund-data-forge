@@ -5,15 +5,14 @@ const theme = ref<Theme>('dark')
 
 function applyTheme(t: Theme) {
   if (import.meta.server) return
-  document.documentElement.setAttribute('data-theme', t)
-  localStorage.setItem(STORAGE_KEY, t)
+  // Force dark mode only
+  document.documentElement.setAttribute('data-theme', 'dark')
+  localStorage.setItem(STORAGE_KEY, 'dark')
 }
 
 function getInitialTheme(): Theme {
-  if (import.meta.server) return 'dark'
-  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null
-  if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+  // Always return dark
+  return 'dark'
 }
 
 export function useTheme() {
@@ -28,7 +27,8 @@ export function useTheme() {
   }
 
   function toggle() {
-    theme.value = theme.value === 'dark' ? 'light' : 'dark'
+    // No-op - theme toggle is disabled, always stay dark
+    theme.value = 'dark'
     applyTheme(theme.value)
   }
 

@@ -19,7 +19,7 @@ const handleClear = () => clearError({ redirect: '/' })
         }}
       </p>
       <p v-if="error.statusCode" class="error-page__code">Foutcode: {{ error.statusCode }}</p>
-      <button class="error-page__button" @click="handleClear">Probeer opnieuw</button>
+      <FtpButton label="Probeer opnieuw" variant="primary" @click="handleClear" />
     </div>
   </div>
 </template>
@@ -52,37 +52,21 @@ const handleClear = () => clearError({ redirect: '/' })
 }
 
 .error-page__title {
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
   font-size: 1.5rem;
   margin: 0;
 }
 
 .error-page__message {
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-size: 0.95rem;
   margin: 0;
 }
 
 .error-page__code {
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-size: 0.8rem;
   opacity: 0.6;
   margin: 0;
-}
-
-.error-page__button {
-  margin-top: var(--space-s, 10px);
-  padding: var(--space-xs, 6px) var(--space-l, 28px);
-  background: var(--color-primary, #6366f1);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-default, 5px);
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.error-page__button:hover {
-  opacity: 0.85;
 }
 </style>

@@ -14,6 +14,7 @@ import { KnexAdapter } from '@data-engine/adapter-knex';
 
 const postsSchema: CollectionSchema = {
   name: 'posts',
+  singularName: 'post',
   fields: [
     { name: 'title', type: 'text', required: true },
     { name: 'body', type: 'text' },
@@ -97,7 +98,7 @@ describe('Schema Registry', () => {
 
   it('getAll returns all registered', async () => {
     await registry.register(postsSchema);
-    await registry.register({ name: 'tags', fields: [{ name: 'label', type: 'text' }] });
+    await registry.register({ name: 'tags', singularName: 'tag', fields: [{ name: 'label', type: 'text' }] });
     expect(registry.getAll()).toHaveLength(2);
   });
 

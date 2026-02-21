@@ -23,6 +23,11 @@ const { data: collections } = useFetch<Array<{ name: string }>>('/api/schema', {
 
 const totalPages = computed(() => Math.ceil((result.value?.total ?? 0) / limit))
 
+const collectionFilterOptions = computed(() => [
+  { label: 'Alle collecties', value: '' },
+  ...(collections.value ?? []).map((col) => ({ label: col.name, value: col.name })),
+])
+
 const actionEmoji: Record<string, string> = {
   create: '🟢',
   update: '🟡',
@@ -71,16 +76,15 @@ watch(selectedCollection, () => {
     <div class="activity-page__header">
       <h1>📋 Activiteitenlog</h1>
       <div class="activity-page__filters">
-        <select v-model="selectedCollection" class="activity-page__select">
-          <option value="">Alle collecties</option>
-          <option v-for="col in collections" :key="col.name" :value="col.name">
-            {{ col.name }}
-          </option>
-        </select>
-        <button v-if="selectedCollection" class="activity-page__btn-clear" @click="resetFilter">
-          ✕ Reset
-        </button>
-        <button class="activity-page__btn-refresh" @click="refresh()">🔄</button>
+        <FtpSelect
+          v-model="selectedCollection"
+          :options="collectionFilterOptions"
+          option-label="label"
+          option-value="value"
+          size="sm"
+        />
+        <FtpButton v-if="selectedCollection" label="✕ Reset" variant="secondary" size="sm" @click="resetFilter" />
+        <FtpButton label="🔄" variant="secondary" size="sm" @click="refresh()" />
       </div>
     </div>
 
@@ -100,7 +104,7 @@ watch(selectedCollection, () => {
         <div class="activity-page__entry-content">
           <div class="activity-page__entry-header">
             <span class="activity-page__action">{{ actionLabel[entry.action] || entry.action }}</span>
-            <span class="activity-page__collection">{{ entry.collection }}</span>
+            <FtpTag :value="entry.collection" />
             <span v-if="entry.record_id" class="activity-page__record-id">#{{ entry.record_id }}</span>
           </div>
           <div class="activity-page__entry-time">{{ formatTime(entry.timestamp) }}</div>
@@ -113,9 +117,9 @@ watch(selectedCollection, () => {
     </div>
 
     <div v-if="totalPages > 1" class="activity-page__pagination">
-      <button :disabled="page <= 1" @click="page--">← Vorige</button>
+      <FtpButton label="← Vorige" variant="secondary" size="sm" :is-disabled="page <= 1" @click="page--" />
       <span>Pagina {{ page }} / {{ totalPages }}</span>
-      <button :disabled="page >= totalPages" @click="page++">Volgende →</button>
+      <FtpButton label="Volgende →" variant="secondary" size="sm" :is-disabled="page >= totalPages" @click="page++" />
     </div>
   </div>
 </template>
@@ -137,7 +141,7 @@ watch(selectedCollection, () => {
 .activity-page__header h1 {
   margin: 0;
   font-size: 1.5rem;
-  color: var(--text-heading, #fff);
+  color: var(--text-heading);
 }
 
 .activity-page__filters {
@@ -146,33 +150,8 @@ watch(selectedCollection, () => {
   align-items: center;
 }
 
-.activity-page__select {
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  font-size: 0.875rem;
-}
-
-.activity-page__btn-clear,
-.activity-page__btn-refresh {
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.activity-page__btn-clear:hover,
-.activity-page__btn-refresh:hover {
-  color: var(--text-default, #fff);
-}
-
 .activity-page__empty {
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   text-align: center;
   padding: var(--space-xl, 48px);
 }
@@ -212,27 +191,19 @@ watch(selectedCollection, () => {
 
 .activity-page__action {
   font-weight: 600;
-  color: var(--text-default, #fff);
+  color: var(--text-default);
   font-size: 0.875rem;
-}
-
-.activity-page__collection {
-  background: var(--surface-muted, #060813);
-  padding: 2px 8px;
-  border-radius: 3px;
-  font-size: 0.75rem;
-  color: var(--text-secondary, #9ea5c2);
 }
 
 .activity-page__record-id {
   font-size: 0.75rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   opacity: 0.7;
 }
 
 .activity-page__entry-time {
   font-size: 0.75rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -242,7 +213,7 @@ watch(selectedCollection, () => {
 
 .activity-page__changes summary {
   font-size: 0.75rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
@@ -252,7 +223,7 @@ watch(selectedCollection, () => {
   padding: var(--space-xs, 6px);
   border-radius: 3px;
   overflow-x: auto;
-  color: var(--text-default, #fff);
+  color: var(--text-default);
   margin-top: var(--space-2xs, 4px);
 }
 
@@ -264,23 +235,8 @@ watch(selectedCollection, () => {
   margin-top: var(--space-l, 28px);
 }
 
-.activity-page__pagination button {
-  padding: var(--space-xs, 6px) var(--space-m, 16px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.activity-page__pagination button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .activity-page__pagination span {
   font-size: 0.875rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
 }
 </style>

@@ -26,10 +26,8 @@ const serverError = ref('')
 const submitting = ref(false)
 const loading = ref(false)
 
-// Relation options cache: { fieldName: [{ id, label }] }
 const relationOptions = ref<Record<string, Array<{ id: string; label: string }>>>({})
 
-// Initialize form data from schema defaults
 watch(
   fields,
   (f) => {
@@ -44,7 +42,6 @@ watch(
   { immediate: true },
 )
 
-// Load record data in edit mode
 watch(
   () => props.recordId,
   async (id) => {
@@ -63,7 +60,6 @@ watch(
   { immediate: true },
 )
 
-// Load relation options for relation fields
 watch(
   fields,
   async (f) => {
@@ -114,7 +110,6 @@ async function handleFileUpload(fieldName: string, event: Event) {
   }
 }
 
-// Detect file metadata from existing paths on load
 watch(
   [fields, formData],
   () => {
@@ -186,8 +181,9 @@ async function handleSubmit() {
       const result = await createRecord(props.collection, payload)
       const record = ((result as any)?.data ?? result) as Record<string, unknown>
       emit('success', record ?? payload)
+      // Only navigate when not in modal context
       const newId = record?.id
-      if (newId) {
+      if (newId && router.currentRoute.value.path.includes('/new')) {
         router.push(`/collections/${props.collection}/${newId}`)
       }
     }
@@ -200,21 +196,31 @@ async function handleSubmit() {
 
 function handleCancel() {
   emit('cancel')
-  router.back()
+  // Only navigate back if not in modal context
+  if (!props.recordId || router.currentRoute.value.path.includes('/new')) {
+    router.back()
+  }
 }
 
 function fieldId(name: string) {
   return `df-${props.collection}-${name}`
 }
+
+function getSelectOptions(field: any) {
+  return (field.options ?? []).map((opt: string) => ({ label: opt, value: opt }))
+}
 </script>
 
 <template>
   <div class="data-form" v-if="schemaStatus === 'success'">
-    <div v-if="serverError" class="data-form__server-error" role="alert">
+    <FtpMessage v-if="serverError" severity="error">
       {{ serverError }}
-    </div>
+    </FtpMessage>
 
-    <div v-if="loading" class="data-form__loading">Laden...</div>
+    <div v-if="loading" class="data-form__loading">
+      <FtpProgressSpinner />
+      <span>Laden...</span>
+    </div>
 
     <form v-else @submit.prevent="handleSubmit" novalidate>
       <div
@@ -239,34 +245,30 @@ function fieldId(name: string) {
           {{ formData[field.name] ?? '—' }}
         </div>
 
-        <!-- Boolean: toggle/checkbox -->
+        <!-- Boolean: checkbox -->
         <div v-else-if="field.type === 'boolean'" class="data-form__toggle-wrap">
-          <input
+          <FtpCheckbox
             :id="fieldId(field.name)"
-            type="checkbox"
-            :checked="!!formData[field.name]"
-            :aria-required="field.required || undefined"
-            :aria-invalid="!!errors[field.name]"
+            :model-value="!!formData[field.name]"
+            :is-invalid="!!errors[field.name]"
             :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-            class="data-form__checkbox"
-            @change="formData[field.name] = ($event.target as HTMLInputElement).checked"
+            @update:model-value="formData[field.name] = $event"
           />
         </div>
 
         <!-- Select: dropdown -->
-        <select
+        <FtpSelect
           v-else-if="field.type === 'select' && field.options?.length"
           :id="fieldId(field.name)"
-          :value="formData[field.name] ?? ''"
-          :aria-required="field.required || undefined"
-          :aria-invalid="!!errors[field.name]"
+          :model-value="(formData[field.name] as string) ?? ''"
+          :options="getSelectOptions(field)"
+          option-label="label"
+          option-value="value"
+          placeholder="Kies..."
+          :is-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-          class="data-form__select"
-          @change="formData[field.name] = ($event.target as HTMLSelectElement).value"
-        >
-          <option value="" disabled>Kies...</option>
-          <option v-for="opt in field.options" :key="opt" :value="opt">{{ opt }}</option>
-        </select>
+          @update:model-value="formData[field.name] = $event"
+        />
 
         <!-- Relation: RecordPicker -->
         <RecordPicker
@@ -274,11 +276,11 @@ function fieldId(name: string) {
           :collection="field.relation?.target ?? field.name"
           :model-value="(formData[field.name] as string | string[] | null) ?? null"
           :multiple="field.relation?.type === 'manyToMany'"
-          :placeholder="`Kies ${field.relation?.target ?? field.name}...`"
           @update:model-value="formData[field.name] = $event"
         />
 
         <!-- Datetime -->
+        <!-- Note: kept as native input type="datetime-local" — no FTP DateTimePicker with time support -->
         <input
           v-else-if="field.type === 'datetime'"
           :id="fieldId(field.name)"
@@ -288,56 +290,49 @@ function fieldId(name: string) {
           :aria-required="field.required || undefined"
           :aria-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-          class="data-form__input"
+          class="data-form__native-input"
           @input="formData[field.name] = ($event.target as HTMLInputElement).value"
         />
 
         <!-- Number (integer) -->
-        <input
+        <FtpInputNumber
           v-else-if="field.type === 'integer'"
           :id="fieldId(field.name)"
-          type="number"
-          step="1"
-          :value="formData[field.name] ?? ''"
-          :required="field.required"
-          :aria-required="field.required || undefined"
-          :aria-invalid="!!errors[field.name]"
+          :model-value="formData[field.name] != null && formData[field.name] !== '' ? Number(formData[field.name]) : null"
+          :step="1"
+          :min-fraction-digits="0"
+          :max-fraction-digits="0"
+          :is-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-          class="data-form__input"
-          @input="formData[field.name] = ($event.target as HTMLInputElement).value"
+          @update:model-value="formData[field.name] = $event"
         />
 
         <!-- Number (float) -->
-        <input
+        <FtpInputNumber
           v-else-if="field.type === 'float'"
           :id="fieldId(field.name)"
-          type="number"
-          step="0.01"
-          :value="formData[field.name] ?? ''"
-          :required="field.required"
-          :aria-required="field.required || undefined"
-          :aria-invalid="!!errors[field.name]"
+          :model-value="formData[field.name] != null && formData[field.name] !== '' ? Number(formData[field.name]) : null"
+          :step="0.01"
+          :min-fraction-digits="0"
+          :max-fraction-digits="2"
+          :is-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-          class="data-form__input"
-          @input="formData[field.name] = ($event.target as HTMLInputElement).value"
+          @update:model-value="formData[field.name] = $event"
         />
 
         <!-- Email -->
-        <input
+        <FtpInputText
           v-else-if="field.type === 'email'"
           :id="fieldId(field.name)"
           type="email"
-          :value="formData[field.name] ?? ''"
-          :required="field.required"
-          :aria-required="field.required || undefined"
-          :placeholder="field.label ?? field.name"
-          :aria-invalid="!!errors[field.name]"
+          :model-value="(formData[field.name] as string) ?? ''"
+          :is-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-          class="data-form__input"
-          @input="formData[field.name] = ($event.target as HTMLInputElement).value"
+          @update:model-value="formData[field.name] = $event"
         />
 
         <!-- File upload -->
+        <!-- Note: kept as native input type="file" — no FTP FileUpload equivalent -->
         <div v-else-if="field.type === 'file'" class="data-form__file-wrap">
           <input
             :id="fieldId(field.name)"
@@ -345,10 +340,12 @@ function fieldId(name: string) {
             :aria-required="field.required || undefined"
             :aria-invalid="!!errors[field.name]"
             :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-            class="data-form__input data-form__file-input"
+            class="data-form__native-input data-form__file-input"
             @change="handleFileUpload(field.name, $event)"
           />
-          <div v-if="fileUploading[field.name]" class="data-form__file-uploading">Uploaden...</div>
+          <div v-if="fileUploading[field.name]" class="data-form__file-uploading">
+            <FtpProgressSpinner /> Uploaden...
+          </div>
           <div v-if="formData[field.name]" class="data-form__file-preview">
             <img
               v-if="fileMeta[field.name]?.mimetype?.startsWith('image/')"
@@ -363,18 +360,13 @@ function fieldId(name: string) {
         </div>
 
         <!-- Text (default) -->
-        <input
+        <FtpInputText
           v-else
           :id="fieldId(field.name)"
-          type="text"
-          :value="formData[field.name] ?? ''"
-          :required="field.required"
-          :aria-required="field.required || undefined"
-          :placeholder="field.label ?? field.name"
-          :aria-invalid="!!errors[field.name]"
+          :model-value="(formData[field.name] as string) ?? ''"
+          :is-invalid="!!errors[field.name]"
           :aria-describedby="errors[field.name] ? `${fieldId(field.name)}-err` : undefined"
-          class="data-form__input"
-          @input="formData[field.name] = ($event.target as HTMLInputElement).value"
+          @update:model-value="formData[field.name] = $event"
         />
 
         <!-- Inline error -->
@@ -389,23 +381,28 @@ function fieldId(name: string) {
       </div>
 
       <div class="data-form__actions">
-        <button type="submit" class="data-form__btn data-form__btn--primary" :disabled="submitting">
-          {{ submitting ? 'Bezig...' : isEditMode ? 'Opslaan' : 'Aanmaken' }}
-        </button>
-        <button
-          type="button"
-          class="data-form__btn data-form__btn--secondary"
+        <FtpButton
+          :label="submitting ? 'Bezig...' : isEditMode ? 'Opslaan' : 'Aanmaken'"
+          variant="primary"
+          :is-disabled="submitting"
+          :is-loading="submitting"
+          @click="handleSubmit"
+        />
+        <FtpButton
+          label="Annuleren"
+          variant="secondary"
           @click="handleCancel"
-        >
-          Annuleren
-        </button>
+        />
       </div>
     </form>
   </div>
 
-  <div v-else-if="schemaStatus === 'pending'" class="data-form__loading">Schema laden...</div>
+  <div v-else-if="schemaStatus === 'pending'" class="data-form__loading">
+    <FtpProgressSpinner />
+    <span>Schema laden...</span>
+  </div>
 
-  <div v-else class="data-form__server-error" role="alert">Schema kon niet geladen worden.</div>
+  <FtpMessage v-else severity="error">Schema kon niet geladen worden.</FtpMessage>
 </template>
 
 <style scoped>
@@ -414,16 +411,11 @@ function fieldId(name: string) {
 }
 
 .data-form__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-s);
   color: var(--text-muted);
   padding: var(--space-m);
-}
-
-.data-form__server-error {
-  background: var(--feedback-errorSubtle);
-  color: var(--feedback-errorEmphasis);
-  padding: var(--space-s) var(--space-m);
-  border-radius: var(--radius-default);
-  margin-bottom: var(--space-m);
 }
 
 .data-form__field {
@@ -436,6 +428,7 @@ function fieldId(name: string) {
   color: var(--text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
+  text-transform: capitalize;
 }
 
 .data-form__required {
@@ -443,8 +436,14 @@ function fieldId(name: string) {
   margin-left: 2px;
 }
 
-.data-form__input,
-.data-form__select {
+.data-form__field :deep(.input-text),
+.data-form__field :deep(.select),
+.data-form__field :deep(.input-number) {
+  width: 100%;
+}
+
+/* Native inputs for datetime-local and file (no FTP equivalent) */
+.data-form__native-input {
   width: 100%;
   padding: var(--space-xs) var(--space-s);
   background: var(--surface-panel);
@@ -456,40 +455,22 @@ function fieldId(name: string) {
   transition: border-color 0.15s;
 }
 
-.data-form__input:focus,
-.data-form__select:focus {
+.data-form__native-input:focus {
   outline: none;
   border-color: var(--border-focus);
   box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
 }
 
-.data-form__field--error .data-form__input,
-.data-form__field--error .data-form__select {
+.data-form__field--error .data-form__native-input {
   border-color: var(--feedback-error);
-}
-
-.data-form__input::placeholder {
-  color: var(--text-subtle);
-}
-
-.data-form__select option {
-  background: var(--surface-elevated);
-  color: var(--text-default);
-}
-
-.data-form__checkbox {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--intent-action-default);
-  cursor: pointer;
 }
 
 .data-form__lookup {
   padding: var(--space-xs) var(--space-s);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-subtle, #1a2244);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-default);
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-size: 0.9375rem;
   font-style: italic;
 }
@@ -514,44 +495,6 @@ function fieldId(name: string) {
   margin-top: var(--space-l);
 }
 
-.data-form__btn {
-  padding: var(--space-xs) var(--space-m);
-  border-radius: var(--radius-default);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: background 0.15s;
-}
-
-.data-form__btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.data-form__btn--primary {
-  background: var(--intent-action-default);
-  color: var(--text-inverse);
-}
-
-.data-form__btn--primary:hover:not(:disabled) {
-  background: var(--intent-action-hover);
-}
-
-.data-form__btn--primary:active:not(:disabled) {
-  background: var(--intent-action-active);
-}
-
-.data-form__btn--secondary {
-  background: var(--intent-secondary-default);
-  color: var(--text-secondary);
-  border: 1px solid var(--intent-secondary-border);
-}
-
-.data-form__btn--secondary:hover {
-  background: var(--intent-secondary-hover);
-}
-
 .data-form__file-wrap {
   display: flex;
   flex-direction: column;
@@ -563,6 +506,9 @@ function fieldId(name: string) {
 }
 
 .data-form__file-uploading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   color: var(--text-muted);
   font-size: 0.8125rem;
 }
@@ -580,22 +526,13 @@ function fieldId(name: string) {
 }
 
 .data-form__file-link {
-  color: var(--text-link, #fb923c);
+  color: var(--text-link);
   text-decoration: none;
   font-size: 0.875rem;
 }
 
 .data-form__file-link:hover {
   text-decoration: underline;
-}
-
-/* Focus visible */
-.data-form__input:focus-visible,
-.data-form__select:focus-visible,
-.data-form__checkbox:focus-visible,
-.data-form__btn:focus-visible {
-  outline: 2px solid var(--border-focus, #f97316);
-  outline-offset: 2px;
 }
 
 @media (max-width: 767px) {
@@ -605,11 +542,6 @@ function fieldId(name: string) {
 
   .data-form__actions {
     flex-direction: column;
-  }
-
-  .data-form__btn {
-    width: 100%;
-    text-align: center;
   }
 }
 </style>

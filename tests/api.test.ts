@@ -29,6 +29,7 @@ describe('API Endpoints', () => {
 
   const tasksSchema: CollectionSchema = {
     name: 'tasks',
+    singularName: 'task',
     fields: [
       { name: 'title', type: 'text', required: true },
       { name: 'status', type: 'select', options: ['todo', 'doing', 'done'] },
@@ -94,6 +95,7 @@ describe('API Endpoints', () => {
     it('updates schema with new field via migration', async () => {
       const updated: CollectionSchema = {
         name: 'tasks',
+        singularName: 'task',
         fields: [
           ...tasksSchema.fields,
           { name: 'description', type: 'text' },
@@ -112,6 +114,7 @@ describe('API Endpoints', () => {
       // Create a temp schema
       const tempSchema: CollectionSchema = {
         name: 'temp_collection',
+        singularName: 'temp_item',
         fields: [{ name: 'value', type: 'text' }],
       };
       await instance.migrationManager.applySchema(tempSchema);

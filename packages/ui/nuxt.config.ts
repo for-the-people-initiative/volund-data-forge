@@ -9,9 +9,14 @@ export default defineNuxtConfig({
   // Make this a Nuxt layer
   // When used via `extends`, these settings merge into the consuming app
 
+  components: [
+    { path: '~/components' },
+  ],
+
   css: [
-    resolve(__dirname, 'node_modules/for-the-people-design-system/dist/css/tokens.css'),
-    resolve(__dirname, 'assets/css/theme-light.css'),
+    '@for-the-people-initiative/design-system/css',
+    '@for-the-people-initiative/design-system/css/theme-dark.css',
+    '~/assets/css/fonts.css',
   ],
 
   app: {

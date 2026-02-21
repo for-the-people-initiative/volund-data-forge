@@ -7,9 +7,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:name': [name: string]
+  'update:singularName': [singularName: string]
 }>()
 
 const localName = ref(props.schema.name)
+const localSingularName = ref(props.schema.singularName || '')
 
 watch(
   () => props.schema.name,
@@ -18,65 +20,72 @@ watch(
   },
 )
 
-function onBlur() {
+watch(
+  () => props.schema.singularName,
+  (s) => {
+    localSingularName.value = s || ''
+  },
+)
+
+function onNameBlur() {
   if (localName.value !== props.schema.name) {
     emit('update:name', localName.value)
+  }
+}
+
+function onSingularNameBlur() {
+  if (localSingularName.value !== props.schema.singularName) {
+    emit('update:singularName', localSingularName.value)
   }
 }
 </script>
 
 <template>
-  <div class="sb-editor">
-    <label for="sb-collection-name" class="sb-editor__label">Collectienaam</label>
-    <input
-      id="sb-collection-name"
-      v-model="localName"
-      class="sb-editor__input"
-      placeholder="bijv. patienten"
-      @blur="onBlur"
-      @keydown.enter="onBlur"
-    />
-    <p class="sb-editor__hint">Gebruik lowercase, underscores voor spaties</p>
-  </div>
+  <FtpPanel header="Collectienaam">
+    <div class="sb-editor">
+      <label for="sb-collection-name" class="sb-editor__label">Collectienaam</label>
+      <FtpInputText
+        id="sb-collection-name"
+        v-model="localName"
+        @blur="onNameBlur"
+        @keydown.enter="onNameBlur"
+      />
+      <p class="sb-editor__hint">Gebruik lowercase, underscores voor spaties</p>
+      
+      <label for="sb-singular-name" class="sb-editor__label">Item naam (enkelvoud)</label>
+      <FtpInputText
+        id="sb-singular-name"
+        v-model="localSingularName"
+        required
+        @blur="onSingularNameBlur"
+        @keydown.enter="onSingularNameBlur"
+      />
+      <p class="sb-editor__hint">Naam voor één item uit deze collectie</p>
+    </div>
+  </FtpPanel>
 </template>
 
 <style scoped>
 .sb-editor {
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-subtle, #1a2244);
-  border-radius: var(--radius-default, 5px);
-  padding: var(--space-m, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs, 4px);
 }
 
 .sb-editor__label {
   display: block;
   font-size: 0.8rem;
-  color: var(--text-secondary, #9ea5c2);
-  margin-bottom: var(--space-2xs, 4px);
+  color: var(--text-secondary);
+  text-transform: capitalize;
 }
 
-.sb-editor__input {
+.sb-editor :deep(.input-text) {
   width: 100%;
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-subtle, #1a2244);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  font-size: 0.9rem;
-  box-sizing: border-box;
-}
-.sb-editor__input:focus {
-  outline: none;
-  border-color: var(--border-focus, #4a6cf7);
-}
-.sb-editor__input:focus-visible {
-  outline: 2px solid var(--border-focus, #f97316);
-  outline-offset: 2px;
 }
 
 .sb-editor__hint {
   font-size: 0.75rem;
-  color: var(--text-secondary, #9ea5c2);
-  margin: var(--space-2xs, 4px) 0 0;
+  color: var(--text-secondary);
+  margin: 0;
 }
 </style>

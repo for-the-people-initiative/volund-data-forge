@@ -26,6 +26,7 @@ describe('Persistent Storage', () => {
 
   const testSchema: CollectionSchema = {
     name: 'notes',
+    singularName: 'note',
     fields: [
       { name: 'title', type: 'text', required: true },
       { name: 'body', type: 'text' },
@@ -56,6 +57,7 @@ describe('Persistent Storage', () => {
     // Update schema
     const v2: CollectionSchema = {
       name: 'notes',
+      singularName: 'note',
       fields: [
         { name: 'title', type: 'text', required: true },
         { name: 'body', type: 'text' },
@@ -75,6 +77,7 @@ describe('Persistent Storage', () => {
     await inst.migrationManager.applySchema(testSchema);
     await inst.migrationManager.applySchema({
       name: 'tags',
+      singularName: 'tag',
       fields: [{ name: 'label', type: 'text' }],
     });
 
@@ -120,6 +123,7 @@ describe('Persistent Storage', () => {
     await inst.migrationManager.applySchema(testSchema);
     await inst.migrationManager.applySchema({
       name: 'categories',
+      singularName: 'category',
       fields: [{ name: 'name', type: 'text' }],
     });
 

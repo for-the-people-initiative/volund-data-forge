@@ -12,6 +12,7 @@ describe('Filter & Sort', () => {
 
   const productsSchema: CollectionSchema = {
     name: 'products',
+    singularName: 'product',
     fields: [
       { name: 'name', type: 'text', required: true },
       { name: 'category', type: 'select', options: ['electronics', 'books', 'clothing'] },

@@ -11,11 +11,13 @@ import { DataEngine } from '@data-engine/engine';
 
 const companiesSchema: CollectionSchema = {
   name: 'companies',
+  singularName: 'company',
   fields: [{ name: 'name', type: 'text', required: true }],
 };
 
 const contactsSchema: CollectionSchema = {
   name: 'contacts',
+  singularName: 'contact',
   fields: [
     { name: 'name', type: 'text', required: true },
     {

@@ -21,8 +21,17 @@ const deletePolicy = ref<'none' | 'cascade' | 'restrict'>(
 const showAdvanced = ref(false)
 const selfRefWarning = ref(false)
 
-// Filter out current collection from targets, but allow self-reference with warning
 const filteredTargets = computed(() => props.availableTargets)
+
+const targetOptions = computed(() =>
+  filteredTargets.value.map((t) => ({ label: t, value: t })),
+)
+
+const deletePolicyOptions = [
+  { label: 'Niets doen', value: 'none' },
+  { label: 'Ook verwijderen', value: 'cascade' },
+  { label: 'Blokkeren', value: 'restrict' },
+]
 
 watch(target, (val) => {
   selfRefWarning.value = val === props.sourceCollection
@@ -55,7 +64,7 @@ function emitRelation() {
       ? 'cascade'
       : deletePolicy.value === 'restrict'
         ? 'restrict'
-        : undefined // default (setNull) — omit from schema
+        : undefined
   const relation: RelationDefinition = {
     target: target.value,
     type,
@@ -72,19 +81,19 @@ function emitRelation() {
 <template>
   <div class="sb-relation">
     <label class="sb-relation__label">Doeltabel</label>
-    <select v-model="target" class="sb-relation__select">
-      <option value="" disabled>Kies een collectie…</option>
-      <option v-for="t in filteredTargets" :key="t" :value="t">{{ t }}</option>
-    </select>
+    <FtpSelect
+      v-model="target"
+      :options="targetOptions"
+    />
 
-    <p v-if="selfRefWarning" class="sb-relation__warning">
+    <FtpMessage v-if="selfRefWarning" severity="warn">
       ⚠️ Je koppelt deze collectie aan zichzelf. Dit kan nuttig zijn (bijv. hiërarchie), maar
       controleer of dit de bedoeling is.
-    </p>
+    </FtpMessage>
 
-    <p v-if="!filteredTargets.length" class="sb-relation__hint">
+    <FtpMessage v-if="!filteredTargets.length" severity="info">
       Maak eerst een andere collectie aan om een koppeling te maken.
-    </p>
+    </FtpMessage>
 
     <SchemaBuilderRelationDiagram
       v-if="target"
@@ -93,23 +102,24 @@ function emitRelation() {
       :max-one="maxOne"
     />
 
-    <button class="sb-relation__advanced-toggle" @click="showAdvanced = !showAdvanced">
-      {{ showAdvanced ? '▾ Geavanceerd' : '▸ Geavanceerd' }}
-    </button>
+    <FtpButton
+      :label="showAdvanced ? '▾ Geavanceerd' : '▸ Geavanceerd'"
+      variant="secondary"
+      size="sm"
+      @click="showAdvanced = !showAdvanced"
+    />
 
-    <div v-if="showAdvanced" class="sb-relation__advanced">
-      <label class="sb-relation__toggle-label">
-        <input type="checkbox" v-model="maxOne" />
-        Maximaal één koppeling per record
-      </label>
+    <FtpPanel v-if="showAdvanced" header="Geavanceerd">
+      <div class="sb-relation__advanced">
+        <FtpCheckbox v-model="maxOne" label="Maximaal één koppeling per record" />
 
-      <label class="sb-relation__label">Wat gebeurt er bij verwijderen?</label>
-      <select v-model="deletePolicy" class="sb-relation__select">
-        <option value="none">Niets doen</option>
-        <option value="cascade">Ook verwijderen</option>
-        <option value="restrict">Blokkeren</option>
-      </select>
-    </div>
+        <label class="sb-relation__label">Wat gebeurt er bij verwijderen?</label>
+        <FtpSelect
+          v-model="deletePolicy"
+          :options="deletePolicyOptions"
+        />
+      </div>
+    </FtpPanel>
   </div>
 </template>
 
@@ -122,70 +132,12 @@ function emitRelation() {
 
 .sb-relation__label {
   font-size: 0.8rem;
-  color: var(--text-secondary, #9ea5c2);
-}
-
-.sb-relation__select {
-  width: 100%;
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-subtle, #1a2244);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  font-size: 0.85rem;
-  box-sizing: border-box;
-}
-.sb-relation__select:focus {
-  outline: none;
-  border-color: var(--border-focus, #4a6cf7);
-}
-
-.sb-relation__warning {
-  margin: 0;
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: rgba(255, 170, 0, 0.1);
-  border: 1px solid rgba(255, 170, 0, 0.3);
-  border-radius: var(--radius-default, 5px);
-  color: #ffaa00;
-  font-size: 0.8rem;
-}
-
-.sb-relation__hint {
-  margin: 0;
-  color: var(--text-secondary, #9ea5c2);
-  font-size: 0.8rem;
-  font-style: italic;
-}
-
-.sb-relation__advanced-toggle {
-  background: none;
-  border: none;
-  color: var(--text-secondary, #9ea5c2);
-  cursor: pointer;
-  font-size: 0.8rem;
-  padding: 0;
-  text-align: left;
-}
-.sb-relation__advanced-toggle:hover {
-  color: var(--text-default, #fff);
+  color: var(--text-secondary);
 }
 
 .sb-relation__advanced {
   display: flex;
   flex-direction: column;
   gap: var(--space-s, 10px);
-  padding: var(--space-s, 10px);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-subtle, #1a2244);
-  border-radius: var(--radius-default, 5px);
-}
-
-.sb-relation__toggle-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2xs, 4px);
-  color: var(--text-secondary, #9ea5c2);
-  font-size: 0.85rem;
-  cursor: pointer;
 }
 </style>

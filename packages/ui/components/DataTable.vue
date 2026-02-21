@@ -3,19 +3,28 @@
  * Schema-driven data table component.
  * Renders columns and rows based on the collection schema.
  * Supports sorting, pagination, filtering (server-side), and saved views.
+ *
+ * Note: The native <table> is kept rather than FtpDataTable because this component
+ * has complex inline editing, bulk selection, custom cell rendering, and action columns
+ * that exceed FtpDataTable's API capabilities. All form elements within the table
+ * (buttons, checkboxes, inputs, selects) use FTP design system components.
  */
 import type { FilterValue } from './FilterBar.vue'
+import DataForm from './DataForm.vue'
 
 const props = defineProps<{
   collection: string
   pageSize?: number
 }>()
 
-const router = useRouter()
 const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
-const { fields, status: schemaStatus } = useSchema(toRef(() => props.collection))
+const { fields, schema, status: schemaStatus } = useSchema(toRef(() => props.collection))
 const { deleteRecord } = useDataEngine()
+
+const singularName = computed(() => {
+  return (schema.value as any)?.singularName || props.collection
+})
 
 // ─── Bulk selection ─────────────────────────────────────────
 const selectedIds = ref<Set<string>>(new Set())
@@ -34,20 +43,17 @@ const allSelected = computed({
   },
 })
 
-function toggleSelect(record: any, e: Event) {
-  e.stopPropagation()
+function toggleSelect(record: any) {
   const id = record.id ?? record._id
   if (selectedIds.value.has(id)) {
     selectedIds.value.delete(id)
   } else {
     selectedIds.value.add(id)
   }
-  // Trigger reactivity
   selectedIds.value = new Set(selectedIds.value)
 }
 
-function toggleSelectAll(e: Event) {
-  e.stopPropagation()
+function toggleSelectAll() {
   allSelected.value = !allSelected.value
   selectedIds.value = new Set(selectedIds.value)
 }
@@ -94,11 +100,22 @@ const deleteTarget = ref<{ id: string; label: string } | null>(null)
 const deleting = ref(false)
 const deleteSuccess = ref(false)
 
+// ─── Edit state ─────────────────────────────────────────────
+const editTarget = ref<{ id: string; record: Record<string, unknown> } | null>(null)
+const editModalVisible = ref(false)
+
 function confirmDelete(record: any, e: Event) {
   e.stopPropagation()
   const id = record.id ?? record._id
   const label = record.name ?? record.title ?? record.label ?? id
   deleteTarget.value = { id, label }
+}
+
+function confirmEdit(record: any, e: Event) {
+  e.stopPropagation()
+  const id = record.id ?? record._id
+  editTarget.value = { id, record: { ...record } }
+  editModalVisible.value = true
 }
 
 const deleteError = ref('')
@@ -126,6 +143,18 @@ function cancelDelete() {
   deleteTarget.value = null
 }
 
+function handleEditSuccess() {
+  editModalVisible.value = false
+  editTarget.value = null
+  showToast('Record bijgewerkt')
+  refresh()
+}
+
+function handleEditCancel() {
+  editModalVisible.value = false
+  editTarget.value = null
+}
+
 // ─── Table state ────────────────────────────────────────────
 const filters = ref<Record<string, FilterValue>>({})
 const sortField = ref<string | null>(null)
@@ -133,88 +162,26 @@ const sortDir = ref<'asc' | 'desc'>('asc')
 const currentPage = ref(1)
 const effectivePageSize = computed(() => props.pageSize ?? 20)
 
-// ─── Saved Views ────────────────────────────────────────────
-interface SavedView {
-  name: string
-  filters: Record<string, FilterValue>
-  sortField: string | null
-  sortDir: 'asc' | 'desc'
-}
+// ─── Views functionality removed per VDF-016 ─────────────────
 
-const VIEWS_KEY = computed(() => `data-engine-views-${props.collection}`)
-const savedViews = ref<SavedView[]>([])
-const currentViewName = ref<string>('Standaard')
-const showSaveDialog = ref(false)
-const newViewName = ref('')
+// loadViews function removed per VDF-016
 
-function loadViews() {
-  if (import.meta.server) return
-  try {
-    const raw = localStorage.getItem(VIEWS_KEY.value)
-    savedViews.value = raw ? JSON.parse(raw) : []
-  } catch {
-    savedViews.value = []
-  }
-}
+// persistViews function removed per VDF-016
 
-function persistViews() {
-  if (import.meta.server) return
-  localStorage.setItem(VIEWS_KEY.value, JSON.stringify(savedViews.value))
-}
+// saveView function removed per VDF-016
 
-function saveView() {
-  const name = newViewName.value.trim()
-  if (!name) return
-  const existing = savedViews.value.findIndex((v) => v.name === name)
-  const view: SavedView = {
-    name,
-    filters: { ...filters.value },
-    sortField: sortField.value,
-    sortDir: sortDir.value,
-  }
-  if (existing >= 0) {
-    savedViews.value[existing] = view
-  } else {
-    savedViews.value.push(view)
-  }
-  persistViews()
-  currentViewName.value = name
-  showSaveDialog.value = false
-  newViewName.value = ''
-}
+// viewOptions computed property removed per VDF-016
 
-function switchView(name: string) {
-  currentViewName.value = name
-  if (name === 'Standaard') {
-    filters.value = {}
-    sortField.value = null
-    sortDir.value = 'asc'
-  } else {
-    const view = savedViews.value.find((v) => v.name === name)
-    if (view) {
-      filters.value = { ...view.filters }
-      sortField.value = view.sortField
-      sortDir.value = view.sortDir
-    }
-  }
-  currentPage.value = 1
-}
+// switchView function removed per VDF-016
 
-function deleteView(name: string) {
-  savedViews.value = savedViews.value.filter((v) => v.name !== name)
-  persistViews()
-  if (currentViewName.value === name) {
-    switchView('Standaard')
-  }
-}
+// deleteView function removed per VDF-016
 
-onMounted(() => loadViews())
+// onMounted loadViews call removed per VDF-016
 
 // ─── Build API URL with filter/sort params ──────────────────
 const apiUrl = computed(() => {
   const params = new URLSearchParams()
 
-  // Filters
   for (const [field, fv] of Object.entries(filters.value)) {
     if (fv.operator === 'like') {
       params.set(`filter[${field}][${fv.operator}]`, String(fv.value))
@@ -227,12 +194,10 @@ const apiUrl = computed(() => {
     }
   }
 
-  // Sort
   if (sortField.value) {
     params.set('sort', sortDir.value === 'desc' ? `-${sortField.value}` : sortField.value)
   }
 
-  // Pagination
   params.set('limit', String(effectivePageSize.value))
   params.set('offset', String((currentPage.value - 1) * effectivePageSize.value))
 
@@ -240,7 +205,6 @@ const apiUrl = computed(() => {
   return `${baseUrl}/collections/${props.collection}${qs ? `?${qs}` : ''}`
 })
 
-// ─── Fetch records (reactive to apiUrl) ─────────────────────
 const {
   data: response,
   status: dataStatus,
@@ -268,12 +232,10 @@ function onFiltersUpdate(newFilters: Record<string, FilterValue>) {
   currentPage.value = 1
 }
 
-// ─── Visible columns ───────────────────────────────────────
 const columns = computed(() => {
   return fields.value.filter((f) => !['id', 'created_at', 'updated_at'].includes(f.name))
 })
 
-// ─── Filterable fields (with options for select) ────────────
 const filterFields = computed(() => {
   return fields.value
     .filter((f) => !['id', 'created_at', 'updated_at'].includes(f.name))
@@ -290,7 +252,6 @@ function toggleSort(fieldName: string) {
     if (sortDir.value === 'asc') {
       sortDir.value = 'desc'
     } else {
-      // Third click: clear sort
       sortField.value = null
       sortDir.value = 'asc'
     }
@@ -304,13 +265,6 @@ function toggleSort(fieldName: string) {
 function sortIcon(fieldName: string) {
   if (sortField.value !== fieldName) return '↕'
   return sortDir.value === 'asc' ? '↑' : '↓'
-}
-
-function goToRecord(record: any) {
-  const id = record.id ?? record._id
-  if (id) {
-    router.push(`/collections/${props.collection}/${id}`)
-  }
 }
 
 // ─── Inline editing ─────────────────────────────────────────
@@ -330,12 +284,20 @@ function startEdit(record: any, col: { name: string; type: string }, e: Event) {
   e.stopPropagation()
   const rowId = record.id ?? record._id
   editingCell.value = { rowId, field: col.name }
-  editValue.value = (record as any)[col.name] ?? ''
+  // For select fields, use the raw value; for others, use the current value or empty string
+  editValue.value = col.type === 'select' 
+    ? ((record as any)[col.name] ?? '') 
+    : ((record as any)[col.name] ?? '')
   editError.value = null
   nextTick(() => {
-    const input = document.querySelector('.dt__inline-input') as HTMLInputElement | HTMLSelectElement
-    input?.focus()
-    if (input && 'select' in input && col.type !== 'select') input.select()
+    const input = document.querySelector('.dt__inline-input--active') as HTMLInputElement | HTMLSelectElement
+    if (input) {
+      input.focus()
+      // For text inputs, select all text for easy editing
+      if (input instanceof HTMLInputElement && col.type !== 'select') {
+        input.select()
+      }
+    }
   })
 }
 
@@ -350,7 +312,6 @@ function validateField(col: any, value: string): string | null {
   if (col.type === 'url' && value && !/^https?:\/\/.+/.test(value)) return 'Ongeldige URL'
   if (['number', 'integer', 'float'].includes(col.type) && value && isNaN(Number(value))) return 'Ongeldig getal'
   if (col.type === 'select' && col.options && value && !col.options.includes(value)) return 'Ongeldige optie'
-  // Check validations from schema
   if (col.validations) {
     for (const v of col.validations) {
       if (v.rule === 'minLength' && value.length < Number(v.value)) return v.message ?? `Minimaal ${v.value} tekens`
@@ -375,7 +336,6 @@ async function saveEdit() {
     return
   }
 
-  // Convert value to correct type
   let patchValue: unknown = editValue.value
   if (['number', 'integer', 'float'].includes(col.type) && editValue.value !== '') {
     patchValue = Number(editValue.value)
@@ -388,7 +348,7 @@ async function saveEdit() {
   editError.value = null
   try {
     await $fetch(`${baseUrl}/collections/${props.collection}/${rowId}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: { [field]: patchValue },
     })
     editingCell.value = null
@@ -473,46 +433,9 @@ function nextPage() {
 
 <template>
   <div class="dt">
-    <!-- Views & Filter bar -->
-    <div class="dt__views-bar">
-      <div class="dt__view-switcher">
-        <label for="dt-view-select" class="sr-only">Weergave</label>
-        <select
-          id="dt-view-select"
-          class="dt__view-select"
-          :value="currentViewName"
-          @change="switchView(($event.target as HTMLSelectElement).value)"
-        >
-          <option value="Standaard">Standaard</option>
-          <option v-for="v in savedViews" :key="v.name" :value="v.name">{{ v.name }}</option>
-        </select>
-        <button
-          v-if="currentViewName !== 'Standaard'"
-          class="dt__view-delete"
-          title="Verwijder weergave"
-          @click="deleteView(currentViewName)"
-        >
-          ✕
-        </button>
-      </div>
-      <button class="dt__view-save" @click="showSaveDialog = true">Opslaan als weergave</button>
-    </div>
+    <!-- Views functionality removed per VDF-016 -->
 
-    <!-- Save dialog -->
-    <div v-if="showSaveDialog" class="dt__save-dialog">
-      <label for="dt-save-view-name" class="sr-only">Naam van de weergave</label>
-      <input
-        id="dt-save-view-name"
-        v-model="newViewName"
-        class="dt__save-input"
-        placeholder="Naam van de weergave..."
-        @keyup.enter="saveView"
-      />
-      <button class="dt__save-btn" :disabled="!newViewName.trim()" @click="saveView">
-        Opslaan
-      </button>
-      <button class="dt__save-cancel" @click="showSaveDialog = false">Annuleren</button>
-    </div>
+    <!-- Save dialog removed per VDF-016 -->
 
     <!-- FilterBar -->
     <FilterBar
@@ -522,44 +445,45 @@ function nextPage() {
       @clear="filters = {}; currentPage = 1"
     />
 
+    <!-- Table info hint -->
+    <div v-if="!isLoading && !fetchError && records.length" class="dt__table-hint">
+      <span class="dt__hint-text">💡 Gebruik de ✏️ knop om te bewerken • Dubbelklik op een cel voor inline editing</span>
+    </div>
+
     <!-- Bulk action bar -->
     <div v-if="!isLoading && !fetchError && selectedIds.size > 0" class="dt__bulk-bar">
       <span class="dt__bulk-count">{{ selectedIds.size }} geselecteerd</span>
-      <button class="dt__bulk-btn dt__bulk-btn--delete" @click="bulkDeleteTarget = true">
-        🗑️ Verwijderen
-      </button>
-      <button class="dt__bulk-btn dt__bulk-btn--export" @click="exportSelectedJson">
-        📥 Exporteren (JSON)
-      </button>
+      <FtpButton label="🗑️ Verwijderen" variant="primary" size="sm" class="dt__bulk-delete" @click="bulkDeleteTarget = true" />
+      <FtpButton label="📥 Exporteren (JSON)" variant="secondary" size="sm" @click="exportSelectedJson" />
     </div>
 
     <!-- Loading state -->
     <div v-if="isLoading" class="dt__loading">
-      <div class="dt__spinner" />
+      <FtpProgressSpinner />
       <span>Laden...</span>
     </div>
 
     <!-- Error state -->
     <div v-else-if="fetchError" class="dt__error">
-      <p>
+      <FtpMessage severity="error">
         ⚠️ Fout bij laden:
         {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
-      </p>
-      <button class="dt__error-retry" @click="refresh()">Opnieuw proberen</button>
+      </FtpMessage>
+      <FtpButton label="Opnieuw proberen" variant="secondary" size="sm" @click="refresh()" />
     </div>
 
     <!-- Table -->
+    <!-- Note: Native <table> retained for inline editing, bulk selection, and custom cell rendering
+         that exceeds FtpDataTable's capabilities. All elements within use FTP components. -->
     <div v-else-if="records.length" class="dt__scroll">
       <table class="dt__table">
         <thead>
           <tr>
             <th scope="col" class="dt__th dt__th--checkbox" @click.stop>
-              <input
-                type="checkbox"
-                class="dt__checkbox"
-                :checked="allSelected"
+              <FtpCheckbox
+                :model-value="allSelected"
                 aria-label="Selecteer alles"
-                @change="toggleSelectAll($event)"
+                @update:model-value="toggleSelectAll"
               />
             </th>
             <th
@@ -584,15 +508,12 @@ function nextPage() {
             :key="(record as any).id ?? i"
             class="dt__row"
             :class="{ 'dt__row--selected': selectedIds.has((record as any).id ?? (record as any)._id) }"
-            @click="goToRecord(record)"
           >
             <td class="dt__td dt__td--checkbox" @click.stop>
-              <input
-                type="checkbox"
-                class="dt__checkbox"
-                :checked="selectedIds.has((record as any).id ?? (record as any)._id)"
+              <FtpCheckbox
+                :model-value="selectedIds.has((record as any).id ?? (record as any)._id)"
                 :aria-label="`Selecteer ${(record as any).name ?? (record as any).id ?? 'record'}`"
-                @change="toggleSelect(record, $event)"
+                @update:model-value="toggleSelect(record)"
               />
             </td>
             <td
@@ -603,50 +524,80 @@ function nextPage() {
                 `dt__td--${col.type}`,
                 { 'dt__td--editable': isEditable(col), 'dt__td--editing': isEditingCell(record, col.name), 'dt__td--edit-error': hasEditError(record, col.name) }
               ]"
-              @click="isEditable(col) ? startEdit(record, col, $event) : undefined"
+              @dblclick="isEditable(col) ? startEdit(record, col, $event) : undefined"
             >
-              <!-- Editing state -->
-              <template v-if="isEditingCell(record, col.name)">
-                <select
-                  v-if="col.type === 'select'"
-                  v-model="editValue"
-                  class="dt__inline-input dt__inline-select"
-                  @blur="saveEdit"
-                  @keydown="onEditKeydown"
-                  @click.stop
-                >
-                  <option v-if="!col.required" value="">—</option>
-                  <option v-for="opt in (col as any).options ?? []" :key="opt" :value="opt">{{ opt }}</option>
-                </select>
-                <input
-                  v-else
-                  v-model="editValue"
-                  class="dt__inline-input"
-                  :type="['number', 'integer', 'float'].includes(col.type) ? 'number' : col.type === 'email' ? 'email' : col.type === 'url' ? 'url' : 'text'"
-                  @blur="saveEdit"
-                  @keydown="onEditKeydown"
-                  @click.stop
-                />
+              <!-- Editable fields: Always render input to prevent layout shift -->
+              <template v-if="isEditable(col)">
+                <!-- Select fields -->
+                <template v-if="col.type === 'select'">
+                  <!-- Active edit state -->
+                  <select
+                    v-if="isEditingCell(record, col.name)"
+                    v-model="editValue"
+                    class="dt__inline-input dt__inline-select dt__inline-input--active"
+                    @blur="saveEdit"
+                    @keydown="onEditKeydown"
+                    @click.stop
+                  >
+                    <option v-if="!col.required" value="">—</option>
+                    <option v-for="opt in (col as any).options ?? []" :key="opt" :value="opt">{{ opt }}</option>
+                  </select>
+                  <!-- Read-only state -->
+                  <select
+                    v-else
+                    :value="(record as any)[col.name] ?? ''"
+                    disabled
+                    tabindex="-1"
+                    class="dt__inline-input dt__inline-select dt__inline-input--readonly"
+                  >
+                    <option v-if="!col.required" value="">—</option>
+                    <option v-for="opt in (col as any).options ?? []" :key="opt" :value="opt">{{ opt }}</option>
+                  </select>
+                </template>
+                
+                <!-- Text/number/email/url fields -->
+                <template v-else>
+                  <!-- Active edit state -->
+                  <input
+                    v-if="isEditingCell(record, col.name)"
+                    v-model="editValue"
+                    class="dt__inline-input dt__inline-input--active"
+                    :type="['number', 'integer', 'float'].includes(col.type) ? 'number' : col.type === 'email' ? 'email' : col.type === 'url' ? 'url' : 'text'"
+                    @blur="saveEdit"
+                    @keydown="onEditKeydown"
+                    @click.stop
+                  />
+                  <!-- Read-only state -->
+                  <input
+                    v-else
+                    :value="formatValue((record as any)[col.name], col.type)"
+                    readonly
+                    tabindex="-1"
+                    class="dt__inline-input dt__inline-input--readonly"
+                    :type="['number', 'integer', 'float'].includes(col.type) ? 'number' : col.type === 'email' ? 'email' : col.type === 'url' ? 'url' : 'text'"
+                  />
+                </template>
+                
                 <span v-if="hasEditError(record, col.name)" class="dt__inline-error">{{ editError!.message }}</span>
               </template>
-              <!-- Display state -->
+              
+              <!-- Non-editable fields: Display only -->
               <template v-else>
-                <!-- Select type: badge -->
-                <span v-if="col.type === 'select'" class="dt__badge">
-                  {{ (record as any)[col.name] ?? '—' }}
-                </span>
-                <!-- Boolean -->
+                <FtpTag 
+                  v-if="col.type === 'select'" 
+                  :value="(record as any)[col.name] ?? '—'" 
+                  class="dt__status-tag" 
+                  :data-value="String((record as any)[col.name] ?? '').toLowerCase()"
+                />
                 <span
                   v-else-if="col.type === 'boolean'"
                   :class="(record as any)[col.name] ? 'dt__bool--true' : 'dt__bool--false'"
                 >
                   {{ (record as any)[col.name] ? '✓' : '✗' }}
                 </span>
-                <!-- Relation -->
                 <span v-else-if="col.type === 'relation'" class="dt__relation">
                   {{ (record as any)[col.name] ?? '—' }}
                 </span>
-                <!-- File -->
                 <span v-else-if="col.type === 'file' && (record as any)[col.name]" class="dt__file" @click.stop>
                   <img
                     v-if="isImagePath(String((record as any)[col.name]))"
@@ -659,22 +610,30 @@ function nextPage() {
                   </a>
                 </span>
                 <span v-else-if="col.type === 'file'">—</span>
-                <!-- Default -->
                 <span v-else>
                   {{ formatValue((record as any)[col.name], col.type) }}
                 </span>
-                <!-- Pencil icon for editable cells -->
-                <span v-if="isEditable(col)" class="dt__edit-icon" aria-hidden="true">✎</span>
               </template>
             </td>
             <td class="dt__td dt__td--actions">
-              <button
-                class="dt__delete-btn"
-                :aria-label="`Verwijder ${(record as any).name ?? (record as any).title ?? (record as any).label ?? (record as any).id ?? 'record'}`"
-                @click="confirmDelete(record, $event)"
-              >
-                🗑️
-              </button>
+              <div class="dt__actions-group">
+                <FtpButton
+                  label="✏️"
+                  variant="secondary"
+                  size="sm"
+                  class="dt__edit-btn"
+                  :aria-label="`Bewerk ${(record as any).name ?? (record as any).title ?? (record as any).label ?? (record as any).id ?? 'record'}`"
+                  @click="confirmEdit(record, $event)"
+                />
+                <FtpButton
+                  label="🗑️"
+                  variant="secondary"
+                  size="sm"
+                  class="dt__delete-btn"
+                  :aria-label="`Verwijder ${(record as any).name ?? (record as any).title ?? (record as any).label ?? (record as any).id ?? 'record'}`"
+                  @click="confirmDelete(record, $event)"
+                />
+              </div>
             </td>
           </tr>
         </tbody>
@@ -687,57 +646,89 @@ function nextPage() {
     </div>
 
     <!-- Bulk delete confirmation dialog -->
-    <Teleport to="body">
-      <div v-if="bulkDeleteTarget" class="dt__overlay" @click.self="bulkDeleteTarget = false" @keydown.escape="bulkDeleteTarget = false">
-        <div class="dt__dialog" role="dialog" aria-modal="true" aria-labelledby="dt-bulk-delete-title">
-          <p id="dt-bulk-delete-title">
-            Weet je zeker dat je <strong>{{ selectedIds.size }} records</strong> wilt verwijderen?
-          </p>
-          <div class="dt__dialog-actions">
-            <button class="dt__dialog-cancel" @click="bulkDeleteTarget = false" :disabled="bulkDeleting">
-              Annuleren
-            </button>
-            <button class="dt__dialog-confirm" @click="executeBulkDelete" :disabled="bulkDeleting">
-              {{ bulkDeleting ? 'Bezig...' : 'Verwijderen' }}
-            </button>
-          </div>
+    <FtpDialog
+      :visible="bulkDeleteTarget"
+      header="Bulk verwijderen"
+      :modal="true"
+      size="sm"
+      @update:visible="bulkDeleteTarget = $event"
+    >
+      <p>
+        Weet je zeker dat je <strong>{{ selectedIds.size }} {{ selectedIds.size === 1 ? singularName : `${singularName}s` }}</strong> wilt verwijderen?
+      </p>
+      <template #footer>
+        <div class="dt__dialog-actions">
+          <FtpButton label="Annuleren" variant="secondary" :is-disabled="bulkDeleting" @click="bulkDeleteTarget = false" />
+          <FtpButton
+            :label="bulkDeleting ? 'Bezig...' : 'Verwijderen'"
+            variant="primary"
+            class="dt__dialog-delete"
+            :is-disabled="bulkDeleting"
+            :is-loading="bulkDeleting"
+            @click="executeBulkDelete"
+          />
         </div>
-      </div>
-    </Teleport>
+      </template>
+    </FtpDialog>
 
     <!-- Delete confirmation dialog -->
-    <Teleport to="body">
-      <div v-if="deleteTarget" class="dt__overlay" @click.self="cancelDelete" @keydown.escape="cancelDelete">
-        <div class="dt__dialog" role="dialog" aria-modal="true" aria-labelledby="dt-delete-title">
-          <p id="dt-delete-title">
-            Weet je zeker dat je <strong>{{ deleteTarget.label }}</strong> wilt verwijderen?
-          </p>
-          <p v-if="deleteError" class="dt__dialog-error">{{ deleteError }}</p>
-          <div class="dt__dialog-actions">
-            <button class="dt__dialog-cancel" @click="cancelDelete" :disabled="deleting">
-              Annuleren
-            </button>
-            <button class="dt__dialog-confirm" @click="executeDelete" :disabled="deleting">
-              {{ deleting ? 'Bezig...' : 'Verwijderen' }}
-            </button>
-          </div>
+    <FtpDialog
+      :visible="!!deleteTarget"
+      header="Record verwijderen"
+      :modal="true"
+      size="sm"
+      @update:visible="!$event && cancelDelete()"
+    >
+      <p v-if="deleteTarget">
+        Weet je zeker dat je deze {{ singularName }} <strong>{{ deleteTarget.label }}</strong> wilt verwijderen?
+      </p>
+      <FtpMessage v-if="deleteError" severity="error">{{ deleteError }}</FtpMessage>
+      <template #footer>
+        <div class="dt__dialog-actions">
+          <FtpButton label="Annuleren" variant="secondary" :is-disabled="deleting" @click="cancelDelete" />
+          <FtpButton
+            :label="deleting ? 'Bezig...' : 'Verwijderen'"
+            variant="primary"
+            class="dt__dialog-delete"
+            :is-disabled="deleting"
+            :is-loading="deleting"
+            @click="executeDelete"
+          />
         </div>
+      </template>
+    </FtpDialog>
+
+    <!-- Edit Modal -->
+    <FtpDialog
+      :visible="editModalVisible"
+      :header="`Bewerk record`"
+      :modal="true"
+      size="lg"
+      @update:visible="editModalVisible = $event"
+    >
+      <div v-if="editTarget" class="dt__edit-modal-content">
+        <DataForm
+          :collection="collection"
+          :record-id="editTarget.id"
+          @success="handleEditSuccess"
+          @cancel="handleEditCancel"
+        />
       </div>
-    </Teleport>
+    </FtpDialog>
 
     <!-- Success feedback -->
-    <div v-if="deleteSuccess || toastMessage" class="dt__toast">{{ toastMessage || 'Record verwijderd' }}</div>
+    <FtpMessage v-if="deleteSuccess || toastMessage" severity="success" class="dt__toast">
+      {{ toastMessage || 'Record verwijderd' }}
+    </FtpMessage>
 
     <!-- Pagination -->
     <div v-if="!isLoading && totalRecords > 0" class="dt__pagination">
-      <button class="dt__page-btn" :disabled="currentPage <= 1" @click="prevPage">← Vorige</button>
+      <FtpButton label="← Vorige" variant="secondary" size="sm" :is-disabled="currentPage <= 1" @click="prevPage" />
       <span class="dt__page-info">
         Pagina {{ currentPage }} van {{ totalPages }}
         <span class="dt__page-total">({{ totalRecords }} records)</span>
       </span>
-      <button class="dt__page-btn" :disabled="currentPage >= totalPages" @click="nextPage">
-        Volgende →
-      </button>
+      <FtpButton label="Volgende →" variant="secondary" size="sm" :is-disabled="currentPage >= totalPages" @click="nextPage" />
     </div>
   </div>
 </template>
@@ -749,112 +740,32 @@ function nextPage() {
   gap: var(--space-m, 16px);
 }
 
-.dt__views-bar {
+/* dt__views-bar styles removed per VDF-016 */
+
+/* dt__view-switcher styles removed per VDF-016 */
+
+/* View dropdown styles removed per VDF-016 */
+
+.dt__dialog-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-s, 10px);
+  width: 100%;
 }
 
-.dt__view-switcher {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3xs, 2px);
+.dt__dialog-delete :deep(.button) {
+  background: var(--feedback-error);
 }
 
-.dt__view-select {
-  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  font-size: 0.8125rem;
-  height: 30px;
-  cursor: pointer;
-  appearance: none;
-}
-
-.dt__view-delete {
-  background: none;
-  border: none;
-  color: var(--text-subtle, #525d8f);
-  cursor: pointer;
-  font-size: 0.75rem;
-  padding: 2px 4px;
-}
-
-.dt__view-delete:hover {
-  color: var(--feedback-error, #ef4444);
-}
-
-.dt__view-save {
-  padding: var(--space-3xs, 2px) var(--space-s, 10px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  height: 30px;
-  white-space: nowrap;
-  transition:
-    border-color 0.15s,
-    color 0.15s;
-}
-
-.dt__view-save:hover {
-  border-color: var(--intent-action-default, #f97316);
-  color: var(--text-default, #fff);
-}
-
-.dt__save-dialog {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs, 6px);
+.dt__table-hint {
+  text-align: center;
   padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-rounded, 8px);
 }
 
-.dt__save-input {
-  flex: 1;
-  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
+.dt__hint-text {
   font-size: 0.8125rem;
-  height: 28px;
-  outline: none;
-}
-
-.dt__save-input:focus {
-  border-color: var(--border-focus, #f97316);
-}
-
-.dt__save-btn {
-  padding: var(--space-3xs, 2px) var(--space-s, 10px);
-  background: var(--intent-action-default, #f97316);
-  border: none;
-  border-radius: var(--radius-default, 5px);
-  color: #fff;
-  font-size: 0.8125rem;
-  cursor: pointer;
-  height: 28px;
-}
-
-.dt__save-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.dt__save-cancel {
-  background: none;
-  border: none;
-  color: var(--text-subtle, #525d8f);
-  font-size: 0.8125rem;
-  cursor: pointer;
+  color: var(--text-subtle);
+  font-style: italic;
 }
 
 .dt__bulk-bar {
@@ -862,46 +773,21 @@ function nextPage() {
   align-items: center;
   gap: var(--space-s, 10px);
   padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--intent-action-default, #f97316);
+  background: var(--surface-panel);
+  border: 1px solid var(--intent-action-default);
   border-radius: var(--radius-rounded, 8px);
 }
 
 .dt__bulk-count {
   font-size: 0.8125rem;
-  color: var(--text-default, #fff);
+  color: var(--text-default);
   font-weight: 600;
   margin-right: auto;
 }
 
-.dt__bulk-btn {
-  padding: var(--space-3xs, 2px) var(--space-s, 10px);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  height: 30px;
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.dt__bulk-btn--delete {
-  background: var(--feedback-error, #ef4444);
-  border-color: var(--feedback-error, #ef4444);
-  color: #fff;
-}
-
-.dt__bulk-btn--delete:hover {
-  opacity: 0.9;
-}
-
-.dt__bulk-btn--export {
-  background: var(--surface-panel, #11162d);
-  color: var(--text-default, #fff);
-}
-
-.dt__bulk-btn--export:hover {
-  border-color: var(--intent-action-default, #f97316);
+.dt__bulk-delete :deep(.button) {
+  background: var(--feedback-error);
+  border-color: var(--feedback-error);
 }
 
 .dt__th--checkbox,
@@ -911,20 +797,13 @@ function nextPage() {
   padding: var(--space-s, 10px) var(--space-xs, 6px);
 }
 
-.dt__checkbox {
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-  accent-color: var(--intent-action-default, #f97316);
-}
-
 .dt__row--selected {
-  background: var(--intent-secondary-hover, #1a2244);
+  background: var(--intent-secondary-hover);
 }
 
 .dt__scroll {
   overflow-x: auto;
-  border: 1px solid var(--border-subtle, #1a2244);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-rounded, 8px);
 }
 
@@ -938,17 +817,18 @@ function nextPage() {
   padding: var(--space-s, 10px) var(--space-m, 16px);
   text-align: left;
   font-weight: 600;
-  color: var(--text-secondary, #9ea5c2);
-  background: var(--surface-muted, #060813);
-  border-bottom: 1px solid var(--border-default, #242e5c);
+  color: var(--text-secondary);
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border-default);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
   transition: color 0.15s;
+  text-transform: capitalize;
 }
 
 .dt__th:hover {
-  color: var(--text-default, #fff);
+  color: var(--text-default);
 }
 
 .dt__th-label {
@@ -965,21 +845,20 @@ function nextPage() {
 }
 
 .dt__row {
-  cursor: pointer;
   transition: background-color 0.15s;
 }
 
 .dt__row:hover {
-  background: var(--surface-panel, #11162d);
+  background: var(--surface-panel);
 }
 
 .dt__row:not(:last-child) .dt__td {
-  border-bottom: 1px solid var(--border-subtle, #1a2244);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .dt__td {
   padding: var(--space-s, 10px) var(--space-m, 16px);
-  color: var(--text-default, #fff);
+  color: var(--text-default);
   white-space: nowrap;
 }
 
@@ -990,26 +869,16 @@ function nextPage() {
   font-variant-numeric: tabular-nums;
 }
 
-.dt__badge {
-  display: inline-block;
-  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
-  background: var(--intent-secondary-hover, #1a2244);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-pill, 9999px);
-  font-size: 0.75rem;
-  color: var(--text-secondary, #9ea5c2);
-}
-
 .dt__bool--true {
-  color: var(--feedback-success, #22c55e);
+  color: var(--feedback-success);
 }
 
 .dt__bool--false {
-  color: var(--text-subtle, #525d8f);
+  color: var(--text-subtle);
 }
 
 .dt__relation {
-  color: var(--text-link, #fb923c);
+  color: var(--text-link);
 }
 
 .dt__file-thumb {
@@ -1017,12 +886,12 @@ function nextPage() {
   height: 32px;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid var(--border-subtle, #1a2244);
+  border: 1px solid var(--border-subtle);
   vertical-align: middle;
 }
 
 .dt__file-link {
-  color: var(--text-link, #fb923c);
+  color: var(--text-link);
   text-decoration: none;
   font-size: 0.8125rem;
 }
@@ -1037,38 +906,78 @@ function nextPage() {
   cursor: pointer;
 }
 
-.dt__edit-icon {
-  display: none;
-  margin-left: var(--space-xs, 6px);
-  color: var(--text-subtle, #525d8f);
-  font-size: 0.75rem;
-}
-
-.dt__row:hover .dt__td--editable .dt__edit-icon {
-  display: inline;
-}
-
 .dt__td--editing {
-  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
-  background: var(--surface-muted, #060813);
-  box-shadow: inset 0 0 0 2px var(--intent-action-default, #f97316);
-  border-radius: 2px;
+  background: var(--surface-panel);
 }
 
 .dt__td--edit-error {
-  box-shadow: inset 0 0 0 2px var(--feedback-error, #ef4444);
+  box-shadow: inset 0 0 0 2px var(--feedback-error);
 }
 
+/* Read-only input - looks like normal table text */
+.dt__inline-input--readonly {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: default;
+  pointer-events: none;
+}
+
+.dt__inline-input--readonly:disabled {
+  opacity: 1;
+  color: inherit;
+}
+
+.dt__inline-input--readonly.dt__inline-select {
+  appearance: none;
+  cursor: default;
+}
+
+/* Active edit input */
+.dt__inline-input--active {
+  width: 100%;
+  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-focus);
+  outline: none;
+  border-radius: var(--radius-default, 4px);
+  color: var(--text-default);
+  font-size: inherit;
+  font-family: inherit;
+  cursor: text;
+}
+
+.dt__inline-input--active:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
+}
+
+.dt__inline-input--active.dt__inline-select {
+  appearance: none;
+  cursor: pointer;
+}
+
+/* Legacy styles for backward compatibility - now unused */
 .dt__inline-input {
   width: 100%;
   padding: var(--space-3xs, 2px) var(--space-xs, 6px);
-  background: transparent;
-  border: none;
-  color: var(--text-default, #fff);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-default);
+  color: var(--text-default);
   font-size: inherit;
   font-family: inherit;
   outline: none;
   height: 28px;
+  border-radius: var(--radius-default, 4px);
+}
+
+.dt__inline-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
 }
 
 .dt__inline-select {
@@ -1079,7 +988,7 @@ function nextPage() {
 .dt__inline-error {
   display: block;
   font-size: 0.6875rem;
-  color: var(--feedback-error, #ef4444);
+  color: var(--feedback-error);
   margin-top: 1px;
   white-space: nowrap;
 }
@@ -1090,22 +999,7 @@ function nextPage() {
   justify-content: center;
   gap: var(--space-s, 10px);
   padding: var(--space-2xl, 68px);
-  color: var(--text-muted, #7680a9);
-}
-
-.dt__spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border-default, #242e5c);
-  border-top-color: var(--intent-action-default, #f97316);
-  border-radius: 50%;
-  animation: dt-spin 0.6s linear infinite;
-}
-
-@keyframes dt-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  color: var(--text-muted);
 }
 
 .dt__error {
@@ -1114,26 +1008,6 @@ function nextPage() {
   align-items: center;
   gap: var(--space-s, 10px);
   padding: var(--space-2xl, 68px);
-  color: var(--feedback-error, #ef4444);
-  font-size: 0.875rem;
-}
-
-.dt__error p {
-  margin: 0;
-}
-
-.dt__error-retry {
-  padding: var(--space-xs, 6px) var(--space-m, 16px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  font-size: 0.8125rem;
-  cursor: pointer;
-}
-
-.dt__error-retry:hover {
-  border-color: var(--intent-action-default, #f97316);
 }
 
 .dt__empty {
@@ -1141,7 +1015,7 @@ function nextPage() {
   align-items: center;
   justify-content: center;
   padding: var(--space-2xl, 68px);
-  color: var(--text-muted, #7680a9);
+  color: var(--text-muted);
   font-size: 0.875rem;
 }
 
@@ -1153,127 +1027,61 @@ function nextPage() {
   padding: var(--space-s, 10px) 0;
 }
 
-.dt__page-btn {
-  padding: var(--space-xs, 6px) var(--space-s, 10px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-default, #fff);
-  font-size: 0.8125rem;
-  cursor: pointer;
-  transition:
-    background-color 0.15s,
-    border-color 0.15s;
-}
-
-.dt__page-btn:hover:not(:disabled) {
-  background: var(--intent-secondary-hover, #1a2244);
-  border-color: var(--border-strong, #2e3b75);
-}
-
-.dt__page-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .dt__page-info {
   font-size: 0.8125rem;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
 }
 
 .dt__page-total {
-  color: var(--text-muted, #7680a9);
+  color: var(--text-muted);
 }
 
 .dt__th--actions {
-  width: 48px;
+  width: 80px;
 }
 
 .dt__td--actions {
   text-align: center;
-  width: 48px;
+  width: 80px;
 }
 
+.dt__actions-group {
+  display: flex;
+  gap: var(--space-2xs, 2px);
+  align-items: center;
+  justify-content: center;
+}
+
+.dt__edit-btn,
 .dt__delete-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.875rem;
-  padding: 4px;
   opacity: 0.4;
   transition: opacity 0.15s;
+  min-width: auto;
+  padding: var(--space-3xs, 2px) var(--space-2xs, 4px);
 }
 
+.dt__row:hover .dt__edit-btn,
 .dt__row:hover .dt__delete-btn {
   opacity: 0.8;
 }
 
+.dt__edit-btn:hover,
 .dt__delete-btn:hover {
   opacity: 1 !important;
 }
 
-.dt__overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+.dt__edit-modal-content {
+  padding: var(--space-s, 10px) 0;
 }
 
-.dt__dialog {
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-rounded, 8px);
-  padding: var(--space-l, 24px);
-  max-width: 400px;
-  width: 90%;
-  color: var(--text-default, #fff);
+.dt__edit-modal-content :deep(.data-form) {
+  max-width: 100%;
 }
 
-.dt__dialog p {
-  margin: 0 0 var(--space-m, 16px);
-  font-size: 0.9375rem;
-  line-height: 1.5;
-}
-
-.dt__dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-s, 10px);
-}
-
-.dt__dialog-cancel {
-  padding: var(--space-2xs, 4px) var(--space-s, 10px);
-  background: var(--surface-muted, #060813);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-default, 5px);
-  color: var(--text-secondary, #9ea5c2);
-  cursor: pointer;
-  font-size: 0.8125rem;
-}
-
-.dt__dialog-confirm {
-  padding: var(--space-2xs, 4px) var(--space-s, 10px);
-  background: var(--feedback-error, #ef4444);
-  border: none;
-  border-radius: var(--radius-default, 5px);
-  color: #fff;
-  cursor: pointer;
-  font-size: 0.8125rem;
-}
-
-.dt__dialog-error {
-  color: var(--feedback-error, #ef4444);
-  font-size: 0.8125rem;
-  margin: 0 0 var(--space-s, 10px);
-}
-
-.dt__dialog-confirm:disabled,
-.dt__dialog-cancel:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.dt__edit-modal-content :deep(.data-form__actions) {
+  margin-top: var(--space-m, 16px);
+  padding-top: var(--space-s, 10px);
+  border-top: 1px solid var(--border-subtle);
 }
 
 .dt__toast {
@@ -1281,23 +1089,7 @@ function nextPage() {
   bottom: var(--space-l, 24px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--feedback-success, #22c55e);
-  color: #fff;
-  padding: var(--space-xs, 6px) var(--space-m, 16px);
-  border-radius: var(--radius-pill, 9999px);
-  font-size: 0.8125rem;
   z-index: 1001;
-  animation: dt-toast 2s ease-in-out;
-}
-
-@keyframes dt-toast {
-  0%,
-  80% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
 }
 
 .sr-only {
@@ -1312,28 +1104,51 @@ function nextPage() {
   border: 0;
 }
 
-/* Focus visible */
-.dt__th:focus-visible,
-.dt__delete-btn:focus-visible,
-.dt__page-btn:focus-visible,
-.dt__view-select:focus-visible,
-.dt__view-save:focus-visible,
-.dt__view-delete:focus-visible,
-.dt__save-btn:focus-visible,
-.dt__save-cancel:focus-visible,
-.dt__error-retry:focus-visible,
-.dt__dialog-cancel:focus-visible,
-.dt__dialog-confirm:focus-visible {
-  outline: 2px solid var(--border-focus, #f97316);
-  outline-offset: 2px;
+/* ─── Status tag overrides ─── */
+.dt__status-tag :deep(.tag) {
+  background: var(--surface-panel) !important;
+  color: var(--text-default) !important;
+  border: 1px solid var(--border-default) !important;
+}
+
+/* Success/active status - green */
+.dt__status-tag[data-value*="actief"] :deep(.tag),
+.dt__status-tag[data-value*="active"] :deep(.tag),
+.dt__status-tag[data-value*="succes"] :deep(.tag),
+.dt__status-tag[data-value*="success"] :deep(.tag),
+.dt__status-tag[data-value*="voltooid"] :deep(.tag),
+.dt__status-tag[data-value*="completed"] :deep(.tag) {
+  background: var(--feedback-success) !important;
+  color: white !important;
+  border-color: var(--feedback-success) !important;
+}
+
+/* Warning status - orange */
+.dt__status-tag[data-value*="pending"] :deep(.tag),
+.dt__status-tag[data-value*="wachten"] :deep(.tag),
+.dt__status-tag[data-value*="review"] :deep(.tag),
+.dt__status-tag[data-value*="concept"] :deep(.tag),
+.dt__status-tag[data-value*="draft"] :deep(.tag) {
+  background: var(--feedback-warning) !important;
+  color: white !important;
+  border-color: var(--feedback-warning) !important;
+}
+
+/* Error status - red */
+.dt__status-tag[data-value*="error"] :deep(.tag),
+.dt__status-tag[data-value*="fout"] :deep(.tag),
+.dt__status-tag[data-value*="rejected"] :deep(.tag),
+.dt__status-tag[data-value*="afgewezen"] :deep(.tag),
+.dt__status-tag[data-value*="failed"] :deep(.tag),
+.dt__status-tag[data-value*="mislukt"] :deep(.tag) {
+  background: var(--feedback-error) !important;
+  color: white !important;
+  border-color: var(--feedback-error) !important;
 }
 
 /* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {
-  .dt__views-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  /* dt__views-bar mobile styles removed per VDF-016 */
 
   .dt__table {
     font-size: 0.8125rem;
@@ -1350,10 +1165,6 @@ function nextPage() {
   .dt__pagination {
     flex-wrap: wrap;
     gap: var(--space-xs, 6px);
-  }
-
-  .dt__save-dialog {
-    flex-wrap: wrap;
   }
 }
 </style>

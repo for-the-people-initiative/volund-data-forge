@@ -17,7 +17,7 @@ const emit = defineEmits<{
   <aside class="sb-collections">
     <div class="sb-collections__header">
       <h3>Collecties</h3>
-      <button class="sb-btn sb-btn--small" @click="emit('create')">+ Nieuw</button>
+      <FtpButton label="+ Nieuw" variant="secondary" size="sm" @click="emit('create')" />
     </div>
     <ul class="sb-collections__list">
       <li
@@ -33,13 +33,14 @@ const emit = defineEmits<{
         @keydown.space.prevent="emit('select', col.name)"
       >
         <span class="sb-collections__name">{{ col.name }}</span>
-        <button
+        <FtpButton
+          label="✕"
+          variant="secondary"
+          size="sm"
           class="sb-collections__delete"
           :aria-label="`Verwijder collectie ${col.name}`"
           @click.stop="emit('delete', col.name)"
-        >
-          ✕
-        </button>
+        />
       </li>
     </ul>
     <p v-if="!collections.length" class="sb-collections__empty">Nog geen collecties</p>
@@ -66,24 +67,7 @@ const emit = defineEmits<{
 .sb-collections__header h3 {
   margin: 0;
   font-size: 0.9rem;
-  color: var(--text-heading, #fff);
-}
-
-.sb-btn {
-  background: var(--surface-interactive, #232a4d);
-  color: var(--text-default, #fff);
-  border: 1px solid var(--border-subtle, #1a2244);
-  border-radius: var(--radius-default, 5px);
-  padding: var(--space-2xs, 4px) var(--space-xs, 6px);
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-.sb-btn:hover {
-  background: var(--surface-hover, #2d3566);
-}
-
-.sb-btn--small {
-  font-size: 0.75rem;
+  color: var(--text-heading);
 }
 
 .sb-collections__list {
@@ -102,7 +86,7 @@ const emit = defineEmits<{
   padding: var(--space-xs, 6px) var(--space-s, 10px);
   border-radius: var(--radius-default, 5px);
   cursor: pointer;
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 .sb-collections__item:hover {
@@ -110,33 +94,34 @@ const emit = defineEmits<{
 }
 .sb-collections__item--active {
   background: var(--surface-muted, #060813);
-  color: var(--text-default, #fff);
+  color: var(--text-default);
 }
 
 .sb-collections__delete {
-  background: none;
-  border: none;
-  color: var(--text-secondary, #9ea5c2);
-  cursor: pointer;
-  font-size: 0.8rem;
   opacity: 0;
   transition: opacity 0.15s;
 }
 .sb-collections__item:hover .sb-collections__delete {
   opacity: 1;
 }
-.sb-collections__delete:hover {
-  color: var(--text-error, #ff6b6b);
+.sb-collections__delete :deep(.button) {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 2px 4px;
+  font-size: 0.8rem;
 }
-.sb-collections__item:focus-visible,
-.sb-collections__delete:focus-visible,
-.sb-btn:focus-visible {
+.sb-collections__delete :deep(.button:hover) {
+  color: var(--feedback-error);
+}
+
+.sb-collections__item:focus-visible {
   outline: 2px solid var(--border-focus, #f97316);
   outline-offset: 2px;
 }
 
 .sb-collections__empty {
-  color: var(--text-secondary, #9ea5c2);
+  color: var(--text-secondary);
   font-size: 0.8rem;
   text-align: center;
   margin-top: var(--space-m, 16px);

@@ -16,11 +16,13 @@ async function setupEngine(onDelete: 'setNull' | 'cascade' | 'restrict' | undefi
 
   const authorsSchema: CollectionSchema = {
     name: 'authors',
+    singularName: 'author',
     fields: [{ name: 'name', type: 'text', required: true }],
   };
 
   const booksSchema: CollectionSchema = {
     name: 'books',
+    singularName: 'book',
     fields: [
       { name: 'title', type: 'text', required: true },
       {

@@ -94,15 +94,30 @@ export class VersionTracker {
       limit: 1,
     })
     if (rows.length === 0) return null
-    return this.parseJson(rows[0]!['schema_snapshot']) as CollectionSchema
+    
+    const schema = this.parseJson(rows[0]!['schema_snapshot']) as CollectionSchema
+    
+    // Fix: Add default singularName for existing schemas that were created before it was required
+    if (!schema.singularName) {
+      schema.singularName = schema.name
+    }
+    
+    return schema
   }
 
   private toSchemaVersion(row: Record<string, unknown>): SchemaVersion {
+    const schema = this.parseJson(row['schema_snapshot']) as CollectionSchema
+    
+    // Fix: Add default singularName for existing schemas that were created before it was required
+    if (!schema.singularName) {
+      schema.singularName = schema.name
+    }
+    
     return {
       id: String(row['id'] ?? ''),
       collection_name: String(row['collection_name']),
       version: Number(row['version']),
-      schema_snapshot: this.parseJson(row['schema_snapshot']) as CollectionSchema,
+      schema_snapshot: schema,
       diff: row['diff'] ? (this.parseJson(row['diff']) as SchemaDiff) : null,
       created_at: String(row['created_at']),
     }
