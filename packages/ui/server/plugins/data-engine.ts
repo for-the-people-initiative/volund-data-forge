@@ -8,6 +8,7 @@ import { createConsoleLogger } from '@data-engine/schema'
 import type { CollectionSchema } from '@data-engine/schema'
 import { setEngine, setMigrationManager } from '../utils/engine'
 import { initWebhooks, fireWebhooks } from '../utils/webhooks'
+import { ensureActivityLog } from '../utils/activity-log'
 import { MigrationManager } from '@data-engine/migration'
 import { existsSync, mkdirSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -169,7 +170,11 @@ export default defineNitroPlugin(async (nitroApp) => {
     logger.info('[data-engine] Data already exists, skipping seed')
   }
 
-  // 6. Initialize webhooks
+  // 6. Initialize activity log table
+  await ensureActivityLog(adapter)
+  logger.info('[data-engine] Activity log initialized')
+
+  // 7. Initialize webhooks
   await initWebhooks(adapter)
   logger.info('[data-engine] Webhooks initialized')
 

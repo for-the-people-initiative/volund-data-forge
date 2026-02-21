@@ -5,6 +5,7 @@
 import { getApiRouter, getRegistry, waitForEngine } from '../../utils/engine'
 import type { RequestContext } from '@data-engine/api'
 import { isInternalCollection, validateCollectionName } from '@data-engine/schema'
+import { logActivity } from '../../utils/activity-log'
 
 export default defineEventHandler(async (event) => {
   await waitForEngine()
@@ -111,6 +112,33 @@ export default defineEventHandler(async (event) => {
   // Execute and return
   const response = await route.handler(reqCtx)
   setResponseStatus(event, response.status)
+
+  // Log activity for successful write operations
+  if (response.status >= 200 && response.status < 300) {
+    if (method === 'POST') {
+      const body = response.body as any
+      const recordId = body?.data?.id ?? body?.id
+      logActivity({
+        collection,
+        record_id: recordId != null ? String(recordId) : undefined,
+        action: 'create',
+        changes: reqCtx.body as Record<string, unknown> | undefined,
+      })
+    } else if (method === 'PUT' && id) {
+      logActivity({
+        collection,
+        record_id: id,
+        action: 'update',
+        changes: reqCtx.body as Record<string, unknown> | undefined,
+      })
+    } else if (method === 'DELETE') {
+      logActivity({
+        collection,
+        record_id: id,
+        action: 'delete',
+      })
+    }
+  }
 
   if (response.status === 204) {
     return null

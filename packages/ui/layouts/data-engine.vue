@@ -22,6 +22,29 @@ function capitalize(name: string) {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
+const { theme, toggle: toggleTheme } = useTheme()
+
+const router = useRouter()
+const searchQuery = ref('')
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+
+function onSearchInput(value: string) {
+  searchQuery.value = value
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    if (value.trim()) {
+      router.push({ path: '/search', query: { q: value.trim() } })
+    }
+  }, 300)
+}
+
+function onSearchSubmit() {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  if (searchQuery.value.trim()) {
+    router.push({ path: '/search', query: { q: searchQuery.value.trim() } })
+  }
+}
+
 const sidebarOpen = ref(false)
 
 function toggleSidebar() {
@@ -66,6 +89,16 @@ watch(
       <NuxtLink :to="routePrefix" class="de-layout__brand">
         <strong>Data Engine</strong>
       </NuxtLink>
+      <form class="de-layout__search" @submit.prevent="onSearchSubmit" role="search">
+        <input
+          type="search"
+          class="de-layout__search-input"
+          placeholder="Zoeken..."
+          :value="searchQuery"
+          @input="onSearchInput(($event.target as HTMLInputElement).value)"
+          aria-label="Zoek in alle collecties"
+        />
+      </form>
       <nav class="de-layout__nav" aria-label="Hoofdnavigatie">
         <NuxtLink
           to="/"
@@ -103,8 +136,24 @@ watch(
           class="de-layout__nav-item"
           :aria-current="route.path === '/schema-overview' ? 'page' : undefined"
         >🗺️ Schema Overzicht</NuxtLink>
+
+        <NuxtLink
+          to="/activity"
+          class="de-layout__nav-item"
+          :aria-current="route.path === '/activity' ? 'page' : undefined"
+        >📋 Activiteitenlog</NuxtLink>
       </nav>
       <div class="de-layout__nav-bottom">
+        <button
+          class="de-layout__theme-toggle"
+          @click="toggleTheme"
+          :aria-label="theme === 'dark' ? 'Schakel naar licht thema' : 'Schakel naar donker thema'"
+          :title="theme === 'dark' ? 'Licht thema' : 'Donker thema'"
+        >
+          <span v-if="theme === 'dark'">☀️</span>
+          <span v-else>🌙</span>
+          <span class="de-layout__theme-label">{{ theme === 'dark' ? 'Licht' : 'Donker' }}</span>
+        </button>
         <NuxtLink
           to="/about"
           class="de-layout__nav-item"
@@ -196,6 +245,31 @@ watch(
   gap: var(--space-m, 16px);
 }
 
+.de-layout__theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs, 6px);
+  padding: var(--space-xs, 6px) var(--space-s, 10px);
+  border-radius: var(--radius-default, 5px);
+  background: transparent;
+  border: 1px solid var(--border-default, #242e5c);
+  color: var(--text-secondary, #9ea5c2);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  width: 100%;
+  text-align: left;
+}
+
+.de-layout__theme-toggle:hover {
+  background: var(--surface-panel, #11162d);
+  color: var(--text-default, #fff);
+}
+
+.de-layout__theme-label {
+  flex: 1;
+}
+
 .de-layout__nav-bottom {
   margin-top: auto;
   display: flex;
@@ -203,6 +277,25 @@ watch(
   gap: var(--space-2xs, 4px);
   padding-top: var(--space-s, 10px);
   border-top: 1px solid var(--border-subtle, #1a2244);
+}
+
+.de-layout__search {
+  margin: 0;
+}
+
+.de-layout__search-input {
+  width: 100%;
+  padding: var(--space-xs, 6px) var(--space-s, 10px);
+  font-size: 0.8rem;
+  background: var(--surface-panel, #11162d);
+  border: 1px solid var(--border-default, #242e5c);
+  border-radius: var(--radius-default, 5px);
+  color: var(--text-default, #fff);
+}
+
+.de-layout__search-input:focus {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
 }
 
 .de-layout__brand {

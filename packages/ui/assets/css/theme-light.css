@@ -1,0 +1,141 @@
+/* Global body theming */
+body {
+  background: var(--surface-canvas);
+  color: var(--text-default);
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Light theme overrides for FTP design system tokens */
+[data-theme="light"] {
+  --surface-canvas: #f5f5f7;
+  --surface-panel: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-overlay: rgba(0, 0, 0, 0.3);
+  --surface-muted: #eeeef0;
+  --surface-inverse: #0a0e1f;
+  --surface-accent: #fef3c7;
+  --surface-gradient-start: #f5f5f7;
+  --surface-gradient-end: #ffffff;
+
+  --text-default: #1a1a2e;
+  --text-primary: #1a1a2e;
+  --text-secondary: #555770;
+  --text-muted: #71748a;
+  --text-subtle: #9a9cb0;
+  --text-inverse: #ffffff;
+  --text-link: #ea580c;
+  --text-linkHover: #c2410c;
+  --text-linkVisited: #7c3aed;
+  --text-heading: #111827;
+
+  --border-subtle: #e5e5ea;
+  --border-default: #d1d1d6;
+  --border-strong: #b0b0ba;
+  --border-focus: #ea580c;
+  --border-vibrant-start: #ea580c;
+  --border-vibrant-end: #b45309;
+
+  --feedback-success: #16a34a;
+  --feedback-successSubtle: rgba(22, 163, 74, 0.1);
+  --feedback-successEmphasis: #15803d;
+  --feedback-warning: #d97706;
+  --feedback-warningSubtle: rgba(217, 119, 6, 0.1);
+  --feedback-warningEmphasis: #b45309;
+  --feedback-error: #dc2626;
+  --feedback-errorSubtle: rgba(220, 38, 38, 0.1);
+  --feedback-errorEmphasis: #b91c1c;
+  --feedback-info: #2563eb;
+  --feedback-infoSubtle: rgba(37, 99, 235, 0.1);
+  --feedback-infoEmphasis: #1d4ed8;
+
+  --intent-action-default: #ea580c;
+  --intent-action-hover: #c2410c;
+  --intent-action-active: #9a3412;
+  --intent-action-disabled: #d1d1d6;
+  --intent-secondary-default: transparent;
+  --intent-secondary-hover: #eeeef0;
+  --intent-secondary-border: #d1d1d6;
+
+  --focus-ring: #ea580c;
+  --brand-primary: #ffffff;
+  --brand-secondary: #ea580c;
+  --brand-accent: #d97706;
+  --brand-subtle: #eeeef0;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-s: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-m: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-l: 0 10px 15px rgba(0, 0, 0, 0.07), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.07), 0 10px 10px rgba(0, 0, 0, 0.03);
+
+  --accordion-header-background-default: #ffffff;
+  --accordion-header-background-hover: rgba(0, 0, 0, 0.03);
+  --accordion-header-background-active: #eeeef0;
+  --accordion-header-color-default: #1a1a2e;
+
+  color-scheme: light;
+}
+
+/* Default to system preference when no data-theme is set */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --surface-canvas: #f5f5f7;
+    --surface-panel: #ffffff;
+    --surface-elevated: #ffffff;
+    --surface-overlay: rgba(0, 0, 0, 0.3);
+    --surface-muted: #eeeef0;
+    --surface-inverse: #0a0e1f;
+    --surface-accent: #fef3c7;
+    --surface-gradient-start: #f5f5f7;
+    --surface-gradient-end: #ffffff;
+
+    --text-default: #1a1a2e;
+    --text-primary: #1a1a2e;
+    --text-secondary: #555770;
+    --text-muted: #71748a;
+    --text-subtle: #9a9cb0;
+    --text-inverse: #ffffff;
+    --text-link: #ea580c;
+    --text-linkHover: #c2410c;
+    --text-linkVisited: #7c3aed;
+    --text-heading: #111827;
+
+    --border-subtle: #e5e5ea;
+    --border-default: #d1d1d6;
+    --border-strong: #b0b0ba;
+    --border-focus: #ea580c;
+
+    --feedback-success: #16a34a;
+    --feedback-successSubtle: rgba(22, 163, 74, 0.1);
+    --feedback-warning: #d97706;
+    --feedback-warningSubtle: rgba(217, 119, 6, 0.1);
+    --feedback-error: #dc2626;
+    --feedback-errorSubtle: rgba(220, 38, 38, 0.1);
+    --feedback-info: #2563eb;
+    --feedback-infoSubtle: rgba(37, 99, 235, 0.1);
+
+    --intent-action-default: #ea580c;
+    --intent-action-hover: #c2410c;
+    --intent-action-active: #9a3412;
+    --intent-action-disabled: #d1d1d6;
+    --intent-secondary-hover: #eeeef0;
+    --intent-secondary-border: #d1d1d6;
+
+    --brand-primary: #ffffff;
+    --brand-secondary: #ea580c;
+    --brand-subtle: #eeeef0;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-s: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-m: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+    --shadow-l: 0 10px 15px rgba(0, 0, 0, 0.07), 0 4px 6px rgba(0, 0, 0, 0.04);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.07), 0 10px 10px rgba(0, 0, 0, 0.03);
+
+    --accordion-header-background-default: #ffffff;
+    --accordion-header-background-hover: rgba(0, 0, 0, 0.03);
+    --accordion-header-background-active: #eeeef0;
+    --accordion-header-color-default: #1a1a2e;
+
+    color-scheme: light;
+  }
+}

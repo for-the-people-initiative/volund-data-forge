@@ -9,7 +9,10 @@ export default defineNuxtConfig({
   // Make this a Nuxt layer
   // When used via `extends`, these settings merge into the consuming app
 
-  css: [resolve(__dirname, 'node_modules/for-the-people-design-system/dist/css/tokens.css')],
+  css: [
+    resolve(__dirname, 'node_modules/for-the-people-design-system/dist/css/tokens.css'),
+    resolve(__dirname, 'assets/css/theme-light.css'),
+  ],
 
   app: {
     head: {

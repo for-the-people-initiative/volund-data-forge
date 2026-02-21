@@ -313,6 +313,120 @@ function goToRecord(record: any) {
   }
 }
 
+// ─── Inline editing ─────────────────────────────────────────
+const EDITABLE_TYPES = new Set(['text', 'string', 'number', 'integer', 'float', 'email', 'url', 'select'])
+
+const editingCell = ref<{ rowId: string; field: string } | null>(null)
+const editValue = ref<string>('')
+const editSaving = ref(false)
+const editError = ref<{ rowId: string; field: string; message: string } | null>(null)
+
+function isEditable(col: { name: string; type: string }) {
+  return EDITABLE_TYPES.has(col.type)
+}
+
+function startEdit(record: any, col: { name: string; type: string }, e: Event) {
+  if (!isEditable(col)) return
+  e.stopPropagation()
+  const rowId = record.id ?? record._id
+  editingCell.value = { rowId, field: col.name }
+  editValue.value = (record as any)[col.name] ?? ''
+  editError.value = null
+  nextTick(() => {
+    const input = document.querySelector('.dt__inline-input') as HTMLInputElement | HTMLSelectElement
+    input?.focus()
+    if (input && 'select' in input && col.type !== 'select') input.select()
+  })
+}
+
+function cancelEdit() {
+  editingCell.value = null
+  editValue.value = ''
+}
+
+function validateField(col: any, value: string): string | null {
+  if (col.required && !value && value !== '0') return 'Verplicht veld'
+  if (col.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Ongeldig e-mailadres'
+  if (col.type === 'url' && value && !/^https?:\/\/.+/.test(value)) return 'Ongeldige URL'
+  if (['number', 'integer', 'float'].includes(col.type) && value && isNaN(Number(value))) return 'Ongeldig getal'
+  if (col.type === 'select' && col.options && value && !col.options.includes(value)) return 'Ongeldige optie'
+  // Check validations from schema
+  if (col.validations) {
+    for (const v of col.validations) {
+      if (v.rule === 'minLength' && value.length < Number(v.value)) return v.message ?? `Minimaal ${v.value} tekens`
+      if (v.rule === 'maxLength' && value.length > Number(v.value)) return v.message ?? `Maximaal ${v.value} tekens`
+      if (v.rule === 'min' && Number(value) < Number(v.value)) return v.message ?? `Minimaal ${v.value}`
+      if (v.rule === 'max' && Number(value) > Number(v.value)) return v.message ?? `Maximaal ${v.value}`
+      if (v.rule === 'pattern' && !new RegExp(v.value as string).test(value)) return v.message ?? 'Ongeldige waarde'
+    }
+  }
+  return null
+}
+
+async function saveEdit() {
+  if (!editingCell.value) return
+  const { rowId, field } = editingCell.value
+  const col = fields.value.find((f) => f.name === field)
+  if (!col) return
+
+  const validationError = validateField(col, editValue.value)
+  if (validationError) {
+    editError.value = { rowId, field, message: validationError }
+    return
+  }
+
+  // Convert value to correct type
+  let patchValue: unknown = editValue.value
+  if (['number', 'integer', 'float'].includes(col.type) && editValue.value !== '') {
+    patchValue = Number(editValue.value)
+  }
+  if (editValue.value === '' && !col.required) {
+    patchValue = null
+  }
+
+  editSaving.value = true
+  editError.value = null
+  try {
+    await $fetch(`${baseUrl}/collections/${props.collection}/${rowId}`, {
+      method: 'PATCH',
+      body: { [field]: patchValue },
+    })
+    editingCell.value = null
+    editValue.value = ''
+    await refresh()
+  } catch (err: any) {
+    editError.value = {
+      rowId,
+      field,
+      message: err?.data?.error?.message ?? err?.message ?? 'Opslaan mislukt',
+    }
+  } finally {
+    editSaving.value = false
+  }
+}
+
+function onEditKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    saveEdit()
+  } else if (e.key === 'Escape') {
+    e.preventDefault()
+    cancelEdit()
+  }
+}
+
+function isEditingCell(record: any, fieldName: string): boolean {
+  if (!editingCell.value) return false
+  const rowId = record.id ?? record._id
+  return editingCell.value.rowId === rowId && editingCell.value.field === fieldName
+}
+
+function hasEditError(record: any, fieldName: string): boolean {
+  if (!editError.value) return false
+  const rowId = record.id ?? record._id
+  return editError.value.rowId === rowId && editError.value.field === fieldName
+}
+
 function formatValue(value: unknown, type: string): string {
   if (value === null || value === undefined) return '—'
   switch (type) {
@@ -476,27 +590,60 @@ function nextPage() {
               v-for="col in columns"
               :key="col.name"
               class="dt__td"
-              :class="`dt__td--${col.type}`"
+              :class="[
+                `dt__td--${col.type}`,
+                { 'dt__td--editable': isEditable(col), 'dt__td--editing': isEditingCell(record, col.name), 'dt__td--edit-error': hasEditError(record, col.name) }
+              ]"
+              @click="isEditable(col) ? startEdit(record, col, $event) : undefined"
             >
-              <!-- Select type: badge -->
-              <span v-if="col.type === 'select'" class="dt__badge">
-                {{ (record as any)[col.name] ?? '—' }}
-              </span>
-              <!-- Boolean -->
-              <span
-                v-else-if="col.type === 'boolean'"
-                :class="(record as any)[col.name] ? 'dt__bool--true' : 'dt__bool--false'"
-              >
-                {{ (record as any)[col.name] ? '✓' : '✗' }}
-              </span>
-              <!-- Relation -->
-              <span v-else-if="col.type === 'relation'" class="dt__relation">
-                {{ (record as any)[col.name] ?? '—' }}
-              </span>
-              <!-- Default -->
-              <span v-else>
-                {{ formatValue((record as any)[col.name], col.type) }}
-              </span>
+              <!-- Editing state -->
+              <template v-if="isEditingCell(record, col.name)">
+                <select
+                  v-if="col.type === 'select'"
+                  v-model="editValue"
+                  class="dt__inline-input dt__inline-select"
+                  @blur="saveEdit"
+                  @keydown="onEditKeydown"
+                  @click.stop
+                >
+                  <option v-if="!col.required" value="">—</option>
+                  <option v-for="opt in (col as any).options ?? []" :key="opt" :value="opt">{{ opt }}</option>
+                </select>
+                <input
+                  v-else
+                  v-model="editValue"
+                  class="dt__inline-input"
+                  :type="['number', 'integer', 'float'].includes(col.type) ? 'number' : col.type === 'email' ? 'email' : col.type === 'url' ? 'url' : 'text'"
+                  @blur="saveEdit"
+                  @keydown="onEditKeydown"
+                  @click.stop
+                />
+                <span v-if="hasEditError(record, col.name)" class="dt__inline-error">{{ editError!.message }}</span>
+              </template>
+              <!-- Display state -->
+              <template v-else>
+                <!-- Select type: badge -->
+                <span v-if="col.type === 'select'" class="dt__badge">
+                  {{ (record as any)[col.name] ?? '—' }}
+                </span>
+                <!-- Boolean -->
+                <span
+                  v-else-if="col.type === 'boolean'"
+                  :class="(record as any)[col.name] ? 'dt__bool--true' : 'dt__bool--false'"
+                >
+                  {{ (record as any)[col.name] ? '✓' : '✗' }}
+                </span>
+                <!-- Relation -->
+                <span v-else-if="col.type === 'relation'" class="dt__relation">
+                  {{ (record as any)[col.name] ?? '—' }}
+                </span>
+                <!-- Default -->
+                <span v-else>
+                  {{ formatValue((record as any)[col.name], col.type) }}
+                </span>
+                <!-- Pencil icon for editable cells -->
+                <span v-if="isEditable(col)" class="dt__edit-icon" aria-hidden="true">✎</span>
+              </template>
             </td>
             <td class="dt__td dt__td--actions">
               <button
@@ -841,6 +988,59 @@ function nextPage() {
 
 .dt__relation {
   color: var(--text-link, #fb923c);
+}
+
+/* ─── Inline editing ─── */
+.dt__td--editable {
+  position: relative;
+  cursor: pointer;
+}
+
+.dt__edit-icon {
+  display: none;
+  margin-left: var(--space-xs, 6px);
+  color: var(--text-subtle, #525d8f);
+  font-size: 0.75rem;
+}
+
+.dt__row:hover .dt__td--editable .dt__edit-icon {
+  display: inline;
+}
+
+.dt__td--editing {
+  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
+  background: var(--surface-muted, #060813);
+  box-shadow: inset 0 0 0 2px var(--intent-action-default, #f97316);
+  border-radius: 2px;
+}
+
+.dt__td--edit-error {
+  box-shadow: inset 0 0 0 2px var(--feedback-error, #ef4444);
+}
+
+.dt__inline-input {
+  width: 100%;
+  padding: var(--space-3xs, 2px) var(--space-xs, 6px);
+  background: transparent;
+  border: none;
+  color: var(--text-default, #fff);
+  font-size: inherit;
+  font-family: inherit;
+  outline: none;
+  height: 28px;
+}
+
+.dt__inline-select {
+  appearance: none;
+  cursor: pointer;
+}
+
+.dt__inline-error {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--feedback-error, #ef4444);
+  margin-top: 1px;
+  white-space: nowrap;
 }
 
 .dt__loading {
