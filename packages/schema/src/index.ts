@@ -3,6 +3,7 @@
 // SE-001: Types
 export type {
   CollectionSchema,
+  ApiSurfaceConfig,
   FieldDefinition,
   RelationDefinition,
   RelationType,

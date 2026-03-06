@@ -18,6 +18,8 @@ export {
   serverError,
 } from './response.js'
 
+export { generateOpenApiSpec } from './openapi.js'
+
 export type {
   EngineInterface,
   RequestContext,

@@ -188,6 +188,13 @@ export interface DatabaseAdapter {
 
   // Introspection
   introspect(): Promise<DatabaseSchema>
+
+  // Database schema (namespace) operations
+  createSchema(name: string): Promise<void>
+  listSchemas(): Promise<string[]>
+  dropSchema(name: string, cascade?: boolean): Promise<void>
+  setSchema(name: string): void
+  getSchema(): string
 }
 
 // ─── Adapter Errors (re-exported from @data-engine/schema) ──────────

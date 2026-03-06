@@ -40,17 +40,23 @@ export class KnexAdapter implements DatabaseAdapter {
   private connected = false
   readonly primaryKeyStrategy: PrimaryKeyStrategy
   private logger?: Logger
+  private activeSchema: string
 
   constructor(private readonly config: KnexAdapterConfig) {
     this.primaryKeyStrategy = config.primaryKey ?? 'uuid'
     this.logger = config.logger
+    this.activeSchema = this.isSQLite() ? 'main' : 'public'
+  }
+
+  private isSQLite(): boolean {
+    return this.config.client === 'sqlite3' || this.config.client === 'better-sqlite3'
   }
 
   // ── Lifecycle (DA-002) ───────────────────────────────────────────
 
   async connect(): Promise<void> {
     try {
-      const isSQLite = this.config.client === 'sqlite3' || this.config.client === 'better-sqlite3'
+      const isSQLite = this.isSQLite()
       this.knex = knex({
         client: this.config.client,
         connection: isSQLite
@@ -99,7 +105,10 @@ export class KnexAdapter implements DatabaseAdapter {
       await db.transaction(async (trx) => {
         // Filter out virtual field types (lookup fields have no DB column)
         const dbFields = fields.filter((f) => f.type !== 'lookup')
-        await trx.schema.createTable(name, (table) => {
+        const schemaBuilder = this.activeSchema !== this.defaultSchema()
+          ? trx.schema.withSchema(this.activeSchema)
+          : trx.schema
+        await schemaBuilder.createTable(name, (table) => {
           // System columns — PK based on strategy
           if (this.primaryKeyStrategy === 'auto-increment') {
             table.increments('id').primary()
@@ -176,7 +185,10 @@ export class KnexAdapter implements DatabaseAdapter {
     const db = this.db()
     this.logger?.debug('dropCollection', { collection: name })
     try {
-      await db.schema.dropTableIfExists(name)
+      const schemaBuilder = this.activeSchema !== this.defaultSchema()
+        ? db.schema.withSchema(this.activeSchema)
+        : db.schema
+      await schemaBuilder.dropTableIfExists(name)
     } catch (err) {
       throw new SchemaError(`Failed to drop collection '${name}'`, err)
     }
@@ -322,7 +334,7 @@ export class KnexAdapter implements DatabaseAdapter {
     try {
       const now = new Date().toISOString()
       const row = { ...data, created_at: now, updated_at: now }
-      const [result] = await db(collection).insert(row).returning('*')
+      const [result] = await this.scopedQuery(db, collection).insert(row).returning('*')
       return result
     } catch (err) {
       throw new QueryError(`Failed to create record in '${collection}'`, err)
@@ -332,7 +344,7 @@ export class KnexAdapter implements DatabaseAdapter {
   async findMany(collection: string, query: QueryAST): Promise<Record<string, unknown>[]> {
     const db = this.db()
     try {
-      let qb = db(collection)
+      let qb = this.scopedQuery(db, collection)
       qb = applyQueryAST(qb, query)
       return await qb
     } catch (err) {
@@ -354,7 +366,7 @@ export class KnexAdapter implements DatabaseAdapter {
     const db = this.db()
     try {
       const updateData = { ...data, updated_at: new Date().toISOString() }
-      let qb = db(collection)
+      let qb = this.scopedQuery(db, collection)
       qb = applyQueryAST(qb, query)
       return await qb.update(updateData).returning('*')
     } catch (err) {
@@ -365,7 +377,7 @@ export class KnexAdapter implements DatabaseAdapter {
   async delete(collection: string, query: QueryAST): Promise<number> {
     const db = this.db()
     try {
-      let qb = db(collection)
+      let qb = this.scopedQuery(db, collection)
       qb = applyQueryAST(qb, query)
       return await qb.delete()
     } catch (err) {
@@ -378,7 +390,7 @@ export class KnexAdapter implements DatabaseAdapter {
   async count(collection: string, query?: QueryAST): Promise<number> {
     const db = this.db()
     try {
-      let qb = db(collection)
+      let qb = this.scopedQuery(db, collection)
       if (query) {
         qb = applyQueryAST(qb, { ...query, limit: undefined, offset: undefined, sort: undefined })
       }
@@ -523,7 +535,86 @@ export class KnexAdapter implements DatabaseAdapter {
     return introspectDatabase(this.db())
   }
 
+  // ── Database Schema (Namespace) Operations ────────────────────
+
+  async createSchema(name: string): Promise<void> {
+    const db = this.db()
+    if (this.isSQLite()) {
+      // SQLite: attach a new database file
+      const path = await import('path')
+      const fs = await import('fs')
+      const mainDb = this.config.database
+      const dir = path.dirname(mainDb)
+      const base = path.basename(mainDb, path.extname(mainDb))
+      const schemaDb = path.join(dir, `${base}_${name}.db`)
+      // Create file if it doesn't exist
+      if (!fs.existsSync(schemaDb)) {
+        fs.writeFileSync(schemaDb, '')
+      }
+      await db.raw(`ATTACH DATABASE '${schemaDb}' AS "${name}"`)
+    } else {
+      await db.raw(`CREATE SCHEMA IF NOT EXISTS "${name}"`)
+    }
+  }
+
+  async listSchemas(): Promise<string[]> {
+    const db = this.db()
+    if (this.isSQLite()) {
+      const result = await db.raw('PRAGMA database_list')
+      return (result as Array<{ name: string }>).map((r) => r.name)
+    } else {
+      const result = await db.raw(
+        `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT LIKE 'pg_%' AND schema_name != 'information_schema'`,
+      )
+      return result.rows.map((r: { schema_name: string }) => r.schema_name)
+    }
+  }
+
+  async dropSchema(name: string, cascade?: boolean): Promise<void> {
+    const db = this.db()
+    if (this.isSQLite()) {
+      const path = await import('path')
+      const fs = await import('fs')
+      await db.raw(`DETACH DATABASE "${name}"`)
+      const mainDb = this.config.database
+      const dir = path.dirname(mainDb)
+      const base = path.basename(mainDb, path.extname(mainDb))
+      const schemaDb = path.join(dir, `${base}_${name}.db`)
+      if (fs.existsSync(schemaDb)) {
+        fs.unlinkSync(schemaDb)
+      }
+      if (this.activeSchema === name) {
+        this.activeSchema = 'main'
+      }
+    } else {
+      const cascadeSql = cascade ? ' CASCADE' : ''
+      await db.raw(`DROP SCHEMA "${name}"${cascadeSql}`)
+      if (this.activeSchema === name) {
+        this.activeSchema = 'public'
+      }
+    }
+  }
+
+  setSchema(name: string): void {
+    this.activeSchema = name
+  }
+
+  getSchema(): string {
+    return this.activeSchema
+  }
+
   // ── Internal ─────────────────────────────────────────────────────
+
+  private defaultSchema(): string {
+    return this.isSQLite() ? 'main' : 'public'
+  }
+
+  private scopedQuery(db: Knex, collection: string): Knex.QueryBuilder {
+    if (this.activeSchema !== this.defaultSchema()) {
+      return db(collection).withSchema(this.activeSchema)
+    }
+    return db(collection)
+  }
 
   private db(): Knex {
     if (!this.knex || !this.connected) {

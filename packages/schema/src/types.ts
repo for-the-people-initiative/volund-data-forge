@@ -69,15 +69,30 @@ export interface CollectionMetadata {
   [key: string]: unknown
 }
 
+/** API surface configuration */
+export interface ApiSurfaceConfig {
+  enabled?: boolean
+  operations?: {
+    list?: boolean
+    read?: boolean
+    create?: boolean
+    update?: boolean
+    delete?: boolean
+  }
+  hiddenFields?: string[]
+}
+
 /** Complete collection schema */
 export interface CollectionSchema {
   name: string
+  schema?: string
   singularName: string
   fields: FieldDefinition[]
   relations?: RelationDefinition[]
   hooks?: HookReference[]
   ui?: UINamespace
   metadata?: CollectionMetadata
+  api?: ApiSurfaceConfig
 }
 
 /** Reserved system-managed fields */

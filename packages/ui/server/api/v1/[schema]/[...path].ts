@@ -1,21 +1,24 @@
 /**
- * Catch-all route for /api/collections/**
- * Delegates to the Data Engine's ApiRouter (H3 adapter pattern).
+ * Catch-all route for /api/v1/:schema/:collection/records/**
+ * Sets the adapter schema, delegates to ApiRouter, then restores.
  */
-import { getApiRouter, getRegistry, getAdapter, waitForEngine } from '../../utils/engine'
+import { getApiRouter, getRegistry, getAdapter, waitForEngine } from '../../../utils/engine'
 import type { RequestContext } from '@data-engine/api'
 import { isInternalCollection, validateCollectionName } from '@data-engine/schema'
-import { logActivity } from '../../utils/activity-log'
+import { logActivity } from '../../../utils/activity-log'
 
 export default defineEventHandler(async (event) => {
   await waitForEngine()
   const apiRouter = getApiRouter()
+  const adapter = getAdapter()
 
-  // Parse path: /api/collections/:collection[/:id]
+  // Extract schema from route params
   const params = getRouterParams(event)
+  const schema = params.schema
   const pathSegments = (params.path || '').split('/').filter(Boolean)
   const collection = pathSegments[0]
-  // Support both /collections/:collection/:id and /collections/:collection/records[/:id]
+
+  // Support /v1/:schema/:collection/records[/:id]
   let id: string | undefined
   if (pathSegments[1] === 'records') {
     id = pathSegments[2]
@@ -28,34 +31,32 @@ export default defineEventHandler(async (event) => {
     return { error: { code: 'MISSING_COLLECTION', message: 'Collection name required' } }
   }
 
-  // Block access to internal tables
   if (isInternalCollection(collection)) {
     setResponseStatus(event, 404)
     return { error: { code: 'NOT_FOUND', message: 'Collection not found' } }
   }
 
-  // Validate collection name format
   const nameError = validateCollectionName(collection)
   if (nameError) {
     setResponseStatus(event, 400)
     return { error: { code: 'INVALID_COLLECTION_NAME', message: nameError } }
   }
 
-  // Schema endpoint: GET /api/collections/:collection/schema
+  // Schema endpoint: GET /api/v1/:schema/:collection/schema
   if (id === 'schema' && event.method === 'GET') {
     const registry = getRegistry()
-    const schema = registry.get(collection)
-    if (!schema) {
+    const col = registry.get(collection)
+    if (!col) {
       setResponseStatus(event, 404)
       return { error: { code: 'NOT_FOUND', message: `Collection '${collection}' not found` } }
     }
-    return schema
+    return col
   }
 
   const method = event.method as 'GET' | 'POST' | 'PUT' | 'DELETE'
   const rawQuery = getQuery(event) as Record<string, string | string[]>
 
-  // Parse bracket notation: filter[field][op]=value → { filter: { field: { op: value } } }
+  // Parse bracket notation
   const query: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(rawQuery)) {
     const match = key.match(/^(\w+)\[([^\]]+)\](?:\[([^\]]+)\])?$/)
@@ -74,7 +75,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Content-Type validation for write methods
   if (method === 'POST' || method === 'PUT') {
     const ct = getRequestHeader(event, 'content-type') ?? ''
     if (!ct.includes('application/json')) {
@@ -85,7 +85,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Build RequestContext
   const reqCtx: RequestContext = {
     method,
     path: `/api/${collection}${id ? `/${id}` : ''}`,
@@ -94,12 +93,10 @@ export default defineEventHandler(async (event) => {
     headers: {},
   }
 
-  // Read body for POST/PUT
   if (method === 'POST' || method === 'PUT') {
     reqCtx.body = await readBody(event)
   }
 
-  // Match route from ApiRouter
   const routes = apiRouter.getDynamicRoutes()
   const routePath = id ? '/api/:collection/:id' : '/api/:collection'
   const route = routes.find((r) => r.method === method && r.path === routePath)
@@ -109,42 +106,39 @@ export default defineEventHandler(async (event) => {
     return { error: { code: 'METHOD_NOT_ALLOWED', message: `${method} not supported` } }
   }
 
-  // Execute and return
-  const response = await route.handler(reqCtx)
-  setResponseStatus(event, response.status)
-
-  // Log activity for successful write operations
-  if (response.status >= 200 && response.status < 300) {
-    if (method === 'POST') {
-      const body = response.body as any
-      const recordId = body?.data?.id ?? body?.id
-      logActivity({
-        collection,
-        record_id: recordId != null ? String(recordId) : undefined,
-        action: 'create',
-        changes: reqCtx.body as Record<string, unknown> | undefined,
-      })
-    } else if (method === 'PUT' && id) {
-      logActivity({
-        collection,
-        record_id: id,
-        action: 'update',
-        changes: reqCtx.body as Record<string, unknown> | undefined,
-      })
-    } else if (method === 'DELETE') {
-      logActivity({
-        collection,
-        record_id: id,
-        action: 'delete',
-      })
+  // Switch adapter schema, execute, restore
+  const previousSchema = adapter.getSchema()
+  try {
+    // Only switch schema if different from current default
+    // ('public' maps to whatever the adapter default is — e.g. 'main' for SQLite)
+    if (schema !== 'public' && schema !== previousSchema) {
+      adapter.setSchema(schema)
     }
+    const response = await route.handler(reqCtx)
+    setResponseStatus(event, response.status)
+
+    // Log activity for successful write operations
+    if (response.status >= 200 && response.status < 300) {
+      if (method === 'POST') {
+        const body = response.body as any
+        const recordId = body?.data?.id ?? body?.id
+        logActivity({
+          collection,
+          record_id: recordId != null ? String(recordId) : undefined,
+          action: 'create',
+          changes: reqCtx.body as Record<string, unknown> | undefined,
+        })
+      } else if (method === 'PUT' && id) {
+        logActivity({ collection, record_id: id, action: 'update', changes: reqCtx.body as Record<string, unknown> | undefined })
+      } else if (method === 'DELETE') {
+        logActivity({ collection, record_id: id, action: 'delete' })
+      }
+    }
+
+    if (response.status === 204) return null
+    setResponseHeader(event, 'content-type', 'application/json')
+    return response.body
+  } finally {
+    adapter.setSchema(previousSchema)
   }
-
-  if (response.status === 204) {
-    return null
-  }
-
-  setResponseHeader(event, 'content-type', 'application/json')
-
-  return response.body
 })

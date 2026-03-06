@@ -31,19 +31,44 @@ export class MigrationManager {
     await this.versionTracker.init()
   }
 
-  // ─── MS-001: Version Tracking ──────────────────────────────────
+  /**
+   * Run a callback with the adapter temporarily switched to a given schema.
+   * Restores the previous schema afterwards (even on error).
+   */
+  private async withSchema<T>(schema: string | undefined, fn: () => Promise<T>): Promise<T> {
+    if (!schema) return fn()
 
-  async getHistory(collection: string): Promise<SchemaVersion[]> {
-    return this.versionTracker.getHistory(collection)
+    const prev = this.adapter.getSchema()
+    this.adapter.setSchema(schema)
+    try {
+      // Ensure version tracking table exists in this schema
+      await this.versionTracker.init()
+      return await fn()
+    } finally {
+      this.adapter.setSchema(prev)
+    }
   }
 
-  async getVersion(collection: string, version: number): Promise<SchemaVersion | null> {
-    return this.versionTracker.getVersion(collection, version)
+  // ─── MS-001: Version Tracking ──────────────────────────────────
+
+  async getHistory(collection: string, schema?: string): Promise<SchemaVersion[]> {
+    return this.withSchema(schema, () => this.versionTracker.getHistory(collection))
+  }
+
+  async getVersion(collection: string, version: number, schema?: string): Promise<SchemaVersion | null> {
+    return this.withSchema(schema, () => this.versionTracker.getVersion(collection, version))
   }
 
   // ─── MS-002 + MS-003: Apply Schema (generate + execute) ───────
 
   async applySchema(
+    schema: CollectionSchema,
+    options?: ApplySchemaOptions,
+  ): Promise<MigrationResult> {
+    return this.withSchema(schema.schema, () => this._applySchemaInner(schema, options))
+  }
+
+  private async _applySchemaInner(
     schema: CollectionSchema,
     options?: ApplySchemaOptions,
   ): Promise<MigrationResult> {
@@ -177,8 +202,8 @@ export class MigrationManager {
   }
 
   /** Get all persisted collection names from version tracker */
-  async getPersistedCollectionNames(): Promise<string[]> {
-    return this.versionTracker.getAllCollectionNames()
+  async getPersistedCollectionNames(schema?: string): Promise<string[]> {
+    return this.withSchema(schema, () => this.versionTracker.getAllCollectionNames())
   }
 
   /** Get latest persisted schema snapshot for a collection */
@@ -193,20 +218,22 @@ export class MigrationManager {
   // ─── MS-004: Import ────────────────────────────────────────────
 
   async importSchema(schema: CollectionSchema): Promise<MigrationResult> {
-    const existing = this.registry.get(schema.name)
+    return this.withSchema(schema.schema, async () => {
+      const existing = this.registry.get(schema.name)
 
-    if (existing && JSON.stringify(existing) === JSON.stringify(schema)) {
-      const version = await this.versionTracker.getLatestVersion(schema.name)
-      return {
-        success: true,
-        collection: schema.name,
-        fromVersion: version,
-        toVersion: version,
-        operationsExecuted: 0,
+      if (existing && JSON.stringify(existing) === JSON.stringify(schema)) {
+        const version = await this.versionTracker.getLatestVersion(schema.name)
+        return {
+          success: true,
+          collection: schema.name,
+          fromVersion: version,
+          toVersion: version,
+          operationsExecuted: 0,
+        }
       }
-    }
 
-    return this.applySchema(schema, { force: true })
+      return this._applySchemaInner(schema, { force: true })
+    })
   }
 
   async importAll(schemas: CollectionSchema[]): Promise<MigrationResult[]> {

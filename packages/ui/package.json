@@ -18,6 +18,8 @@
     "@data-engine/engine": "workspace:*",
     "@data-engine/migration": "workspace:*",
     "@data-engine/schema": "workspace:*",
+    "@data-engine/sdk-generator": "workspace:*",
+    "archiver": "^7.0.0",
     "@for-the-people-initiative/design-system": "^1.4.4",
     "better-sqlite3": "^12.6.2",
     "knex": "^3.1.0",

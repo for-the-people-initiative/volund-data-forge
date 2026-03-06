@@ -6,27 +6,29 @@
 export function useDataEngine() {
   const config = useRuntimeConfig()
   const baseUrl = config.public.dataEngine.apiBaseUrl
+  const { schemaParams } = useDbSchema()
 
   async function listCollections() {
-    return $fetch<{ name: string; count: number }[]>(`${baseUrl}/collections`)
+    return $fetch<{ name: string; count: number }[]>(`${baseUrl}/collections`, { params: schemaParams() })
   }
 
   async function getCollection(name: string) {
-    return $fetch(`${baseUrl}/collections/${name}`)
+    return $fetch(`${baseUrl}/collections/${name}`, { params: schemaParams() })
   }
 
   async function listRecords(collection: string, params?: { page?: number; limit?: number }) {
-    return $fetch(`${baseUrl}/collections/${collection}/records`, { params })
+    return $fetch(`${baseUrl}/collections/${collection}/records`, { params: schemaParams(params) })
   }
 
   async function getRecord(collection: string, id: string) {
-    return $fetch<Record<string, unknown>>(`${baseUrl}/collections/${collection}/records/${id}`)
+    return $fetch<Record<string, unknown>>(`${baseUrl}/collections/${collection}/records/${id}`, { params: schemaParams() })
   }
 
   async function createRecord(collection: string, data: Record<string, unknown>) {
     return $fetch<Record<string, unknown>>(`${baseUrl}/collections/${collection}/records`, {
       method: 'POST',
       body: data,
+      params: schemaParams(),
     })
   }
 
@@ -34,12 +36,14 @@ export function useDataEngine() {
     return $fetch<Record<string, unknown>>(`${baseUrl}/collections/${collection}/records/${id}`, {
       method: 'PUT',
       body: data,
+      params: schemaParams(),
     })
   }
 
   async function deleteRecord(collection: string, id: string) {
     return $fetch(`${baseUrl}/collections/${collection}/records/${id}`, {
       method: 'DELETE',
+      params: schemaParams(),
     })
   }
 

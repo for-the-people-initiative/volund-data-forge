@@ -56,6 +56,16 @@ export class DataEngine {
     }
   }
 
+  // ─── Database Schema (Namespace) ────────────────────────────────────
+
+  setSchema(schema: string): void {
+    this.adapter.setSchema(schema)
+  }
+
+  getActiveSchema(): string {
+    return this.adapter.getSchema()
+  }
+
   // ─── Schema Helpers ───────────────────────────────────────────────
 
   private getSchema(collection: string): CollectionSchema {
@@ -649,6 +659,7 @@ export class DataEngine {
   // ─── CE-008: Transactions ─────────────────────────────────────────
 
   async transaction<T>(fn: (engine: DataEngine) => Promise<T>): Promise<T> {
+    const currentSchema = this.adapter.getSchema()
     return this.adapter.transaction(async (trx) => {
       // Create a transaction-scoped engine that passes the trx client to all operations
       const txEngine = new TransactionScopedEngine(
@@ -659,6 +670,8 @@ export class DataEngine {
         this.defaultLimit,
         this.logger,
       )
+      // Preserve active schema in transaction
+      txEngine.setSchema(currentSchema)
       return fn(txEngine)
     })
   }

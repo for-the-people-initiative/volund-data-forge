@@ -2,10 +2,13 @@
 const routePrefix = useRuntimeConfig().public.dataEngine.routePrefix
 const route = useRoute()
 
-const { data: dynamicCollections, refresh: _refreshCollections } = useFetch<
+const { activeSchema, schemaParams } = useDbSchema()
+
+const { data: dynamicCollections, refresh: refreshCollections } = useFetch<
   Array<{ name: string }>
 >('/api/schema', {
   key: 'sidebar-collections',
+  params: computed(() => schemaParams()),
   default: () => [],
 })
 
@@ -25,6 +28,10 @@ function capitalize(name: string) {
 // Theme toggle removed - VDF uses dark mode only
 
 const router = useRouter()
+
+function onSchemaChange() {
+  refreshCollections()
+}
 
 function onSearchSubmit() {
   if (sidebarFilter.value.trim()) {
@@ -49,6 +56,8 @@ const overigItems = [
   { to: '/webhooks', emoji: '🔔', label: 'Webhooks' },
   { to: '/schema-overview', emoji: '🗺️', label: 'Schema Overzicht' },
   { to: '/activity', emoji: '📋', label: 'Activiteitenlog' },
+  { to: '/api-docs', emoji: '📡', label: 'API Docs' },
+  { to: '/sdk', emoji: '🔧', label: "SDK's" },
 ]
 
 const filteredOverig = computed(() => {
@@ -112,6 +121,7 @@ watch(
       <NuxtLink :to="routePrefix" class="de-layout__brand">
         <strong>Data Engine</strong>
       </NuxtLink>
+      <SchemaSelector @change="onSchemaChange" />
       <form class="de-layout__search" @submit.prevent="onSearchSubmit" role="search">
         <FtpInputText
           v-model="sidebarFilter"

@@ -65,6 +65,13 @@ async function handleDelete() {
           @reorder="sb.onReorder"
         />
 
+        <!-- API Surface Configuration -->
+        <ApiSurfaceEditor
+          v-if="sb.isEditMode.value"
+          :schema="sb.activeCollection.value"
+          @saved="handleSave"
+        />
+
         <!-- Action buttons -->
         <div class="sb-actions">
           <FtpButton

@@ -4,6 +4,24 @@
  * DELETE /api/schema/:collection — remove a collection from registry
  */
 import { getRegistry, getMigrationManager, getAdapter, waitForEngine } from '../../utils/engine'
+
+/**
+ * Helper to scope adapter to a specific database schema, restoring after.
+ */
+async function withSchema<T>(event: any, fn: () => Promise<T>): Promise<T> {
+  const query = getQuery(event)
+  const schemaName = query.schema as string | undefined
+  if (!schemaName) return fn()
+
+  const adapter = getAdapter()
+  const prev = adapter.getSchema()
+  try {
+    adapter.setSchema(schemaName)
+    return await fn()
+  } finally {
+    adapter.setSchema(prev)
+  }
+}
 import {
   validateSchema,
   validateCollectionName,
@@ -74,21 +92,23 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-      const mm = getMigrationManager()
-      if (!mm) {
-        setResponseStatus(event, 500)
-        return {
-          error: { code: 'NO_MIGRATION_MANAGER', message: 'Migration manager not available' },
+      return await withSchema(event, async () => {
+        const mm = getMigrationManager()
+        if (!mm) {
+          setResponseStatus(event, 500)
+          return {
+            error: { code: 'NO_MIGRATION_MANAGER', message: 'Migration manager not available' },
+          }
         }
-      }
 
-      const result = await mm.applySchema(body, { force: true })
-      if (!result.success) {
-        setResponseStatus(event, 500)
-        return { error: { code: 'MIGRATION_FAILED', message: 'Migration failed', details: result } }
-      }
+        const result = await mm.applySchema(body, { force: true })
+        if (!result.success) {
+          setResponseStatus(event, 500)
+          return { error: { code: 'MIGRATION_FAILED', message: 'Migration failed', details: result } }
+        }
 
-      return registry.get(collection)
+        return registry.get(collection)
+      })
     } catch (err) {
       if (err instanceof DataEngineError) {
         setResponseStatus(event, err.statusCode)
@@ -107,11 +127,13 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-      await registry.remove(collection)
-      const adapter = getAdapter()
-      await adapter.dropCollection(collection)
-      setResponseStatus(event, 204)
-      return null
+      return await withSchema(event, async () => {
+        await registry.remove(collection)
+        const adapter = getAdapter()
+        await adapter.dropCollection(collection)
+        setResponseStatus(event, 204)
+        return null
+      })
     } catch (err) {
       if (err instanceof DataEngineError) {
         setResponseStatus(event, err.statusCode)

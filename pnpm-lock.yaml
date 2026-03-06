@@ -117,6 +117,19 @@ importers:
 
   packages/schema: {}
 
+  packages/sdk-generator:
+    dependencies:
+      archiver:
+        specifier: ^7.0.0
+        version: 7.0.1
+    devDependencies:
+      '@types/archiver':
+        specifier: ^6.0.0
+        version: 6.0.4
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
   packages/ui:
     dependencies:
       '@data-engine/adapter':
@@ -137,9 +150,15 @@ importers:
       '@data-engine/schema':
         specifier: workspace:*
         version: link:../schema
+      '@data-engine/sdk-generator':
+        specifier: workspace:*
+        version: link:../sdk-generator
       '@for-the-people-initiative/design-system':
         specifier: ^1.4.4
         version: 1.4.4
+      archiver:
+        specifier: ^7.0.0
+        version: 7.0.1
       better-sqlite3:
         specifier: ^12.6.2
         version: 12.6.2
@@ -1395,6 +1414,9 @@ packages:
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
 
+  '@types/archiver@6.0.4':
+    resolution: {integrity: sha512-ULdQpARQ3sz9WH4nb98mJDYA0ft2A8C4f4fovvUcFwINa1cgGjY36JCAYuP5YypRq4mco1lJp1/7jEMS2oR0Hg==}
+
   '@types/better-sqlite3@7.6.13':
     resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
 
@@ -1418,6 +1440,9 @@ packages:
 
   '@types/pg@8.16.0':
     resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
+
+  '@types/readdir-glob@1.1.5':
+    resolution: {integrity: sha512-raiuEPUYqXu+nvtY2Pe8s8FEmZ3x5yAH4VkLdihcPdalvsHltomrRC9BzuStrJ9yk06470hS0Crw0f1pXqD+Hg==}
 
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
@@ -5543,6 +5568,10 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
+  '@types/archiver@6.0.4':
+    dependencies:
+      '@types/readdir-glob': 1.1.5
+
   '@types/better-sqlite3@7.6.13':
     dependencies:
       '@types/node': 25.3.0
@@ -5569,6 +5598,10 @@ snapshots:
       '@types/node': 25.3.0
       pg-protocol: 1.11.0
       pg-types: 2.2.0
+
+  '@types/readdir-glob@1.1.5':
+    dependencies:
+      '@types/node': 25.3.0
 
   '@types/resolve@1.20.2': {}
 

@@ -44,7 +44,7 @@ const contactsSchema: CollectionSchema = {
       relation: {
         target: 'companies',
         type: 'manyToOne',
-        foreignKey: 'company_id',
+        foreignKey: 'company',
       },
     },
   ],

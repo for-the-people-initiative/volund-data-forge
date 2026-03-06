@@ -20,6 +20,8 @@ export interface DataEngineConfig {
   }
   /** Pre-constructed adapter — if provided, database config is ignored for adapter creation */
   adapter?: DatabaseAdapter
+  /** Default database schema (namespace) to use, e.g. 'public' */
+  schema?: string
   options?: {
     defaultLimit?: number
     logger?: Logger
@@ -33,6 +35,12 @@ export interface DataEngineInstance {
   apiRouter: ApiRouter
   migrationManager: MigrationManager
   destroy: () => Promise<void>
+  // Schema (namespace) operations
+  setSchema: (name: string) => void
+  getSchema: () => string
+  createSchema: (name: string) => Promise<void>
+  listSchemas: () => Promise<string[]>
+  dropSchema: (name: string, cascade?: boolean) => Promise<void>
 }
 
 // ─── Adapter Factory ─────────────────────────────────────────────────
@@ -81,6 +89,11 @@ export async function createDataEngine(config: DataEngineConfig): Promise<DataEn
   // 2. Connect
   await adapter.connect()
 
+  // 2b. Set schema if configured
+  if (config.schema) {
+    adapter.setSchema(config.schema)
+  }
+
   // 3. Create components
   const registry = new SchemaRegistry()
   const engineOptions: EngineOptions = {
@@ -88,7 +101,7 @@ export async function createDataEngine(config: DataEngineConfig): Promise<DataEn
     logger,
   }
   const engine = new DataEngine(registry, adapter, engineOptions)
-  const apiRouter = new ApiRouter(engine, registry)
+  const apiRouter = new ApiRouter(engine, registry, adapter)
   const migrationManager = new MigrationManager(registry, adapter, logger)
 
   // 4. Init migration tracking tables
@@ -108,6 +121,11 @@ export async function createDataEngine(config: DataEngineConfig): Promise<DataEn
       isDestroyed = true
       await adapter.disconnect()
     },
+    setSchema: (name: string) => adapter.setSchema(name),
+    getSchema: () => adapter.getSchema(),
+    createSchema: (name: string) => adapter.createSchema(name),
+    listSchemas: () => adapter.listSchemas(),
+    dropSchema: (name: string, cascade?: boolean) => adapter.dropSchema(name, cascade),
   }
 
   return instance

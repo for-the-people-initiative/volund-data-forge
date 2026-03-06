@@ -1,0 +1,15 @@
+import { defineEventHandler, getQuery } from 'h3'
+import { getRegistry, waitForEngine } from '../utils/engine'
+import { generateOpenApiSpec } from '@data-engine/api'
+
+export default defineEventHandler(async (event) => {
+  await waitForEngine()
+
+  const query = getQuery(event)
+  const schemaName = typeof query.schema === 'string' ? query.schema : undefined
+
+  const registry = getRegistry()
+  const spec = generateOpenApiSpec(registry, { schemaName })
+
+  return spec
+})
