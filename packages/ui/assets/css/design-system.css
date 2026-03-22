@@ -1,0 +1,5 @@
+/* Design system imports - using node_modules relative paths
+ * Vite resolves these through postcss-import
+ */
+@import "../../node_modules/@for-the-people-initiative/design-system/dist/css/tokens.css";
+@import "../../node_modules/@for-the-people-initiative/design-system/dist/css/theme-dark.css";

@@ -21,18 +21,21 @@ function removeOption(idx: number) {
 
 <template>
   <div class="sb-options">
-    <label class="sb-options__label">Selectie-opties</label>
-    <div v-for="(opt, i) in options" :key="i" class="sb-options__item">
-      <span>{{ opt }}</span>
-      <FtpButton label="✕" variant="secondary" size="sm" title="Verwijderen" @click="removeOption(i)" />
-    </div>
-    <div class="sb-options__add">
-      <FtpInputText
-        v-model="newOption"
-        @keydown.enter="addOption"
-      />
-      <FtpButton label="+" variant="secondary" size="sm" @click="addOption" />
-    </div>
+    <FtpFormField label="Selectie-opties">
+      <div>
+        <div v-for="(opt, i) in options" :key="i" class="sb-options__item">
+          <span>{{ opt }}</span>
+          <FtpButton label="✕" variant="secondary" size="sm" title="Verwijderen" @click="removeOption(i)" />
+        </div>
+        <div class="sb-options__add">
+          <FtpInputText
+            v-model="newOption"
+            @keydown.enter="addOption"
+          />
+          <FtpButton label="+" variant="secondary" size="sm" @click="addOption" />
+        </div>
+      </div>
+    </FtpFormField>
   </div>
 </template>
 
@@ -40,13 +43,8 @@ function removeOption(idx: number) {
 .sb-options {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
 }
-.sb-options__label {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
 .sb-options__item {
   display: flex;
   justify-content: space-between;
@@ -60,6 +58,6 @@ function removeOption(idx: number) {
 
 .sb-options__add {
   display: flex;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
 }
 </style>

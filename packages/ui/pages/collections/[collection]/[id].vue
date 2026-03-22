@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import type { CollectionRecord } from '../../../types/collection-record'
+import type { CollectionRecordResponse } from '../../../types/api-response'
+import { getErrorMessage } from '../../../types/api-response'
+
 definePageMeta({ layout: 'data-engine' })
 
 const route = useRoute()
@@ -15,7 +19,8 @@ const capitalize = (str: string) => {
 }
 
 const singularName = computed(() => {
-  const name = (schema.value as any)?.singularName || collection.value
+  const s = schema.value as Record<string, unknown> | null
+  const name = (s?.singularName as string) || collection.value
   return capitalize(name)
 })
 
@@ -33,7 +38,8 @@ const {
   refresh: refreshRecord,
 } = await useAsyncData(`record-${collection.value}-${id.value}`, async () => {
   const raw = await getRecord(collection.value, id.value)
-  return (((raw as any)?.data ?? raw) as Record<string, unknown>) ?? null
+  const response = raw as CollectionRecordResponse | CollectionRecord
+  return (('data' in response && response.data ? response.data : response) as Record<string, unknown>) ?? null
 })
 
 const loading = computed(() => recordStatus.value === 'pending')
@@ -51,15 +57,15 @@ async function handleDelete() {
   try {
     await deleteRecord(collection.value, id.value)
     router.push(`/collections/${collection.value}`)
-  } catch (err: any) {
-    deleteError.value = err?.data?.error?.message ?? err?.message ?? 'Verwijderen mislukt'
+  } catch (err: unknown) {
+    deleteError.value = getErrorMessage(err, 'Verwijderen mislukt')
   } finally {
     deleting.value = false
   }
 }
 
 function fieldLabel(name: string) {
-  const f = fields.value.find((f: any) => f.name === name)
+  const f = fields.value.find((field) => field.name === name)
   return f?.label ?? name
 }
 </script>
@@ -108,6 +114,7 @@ function fieldLabel(name: string) {
       :visible="showDeleteConfirm"
       header="Record verwijderen"
       :modal="true"
+      size="sm"
       @update:visible="showDeleteConfirm = $event"
     >
       <p>Weet je zeker dat je deze {{ singularName }} wilt verwijderen?</p>

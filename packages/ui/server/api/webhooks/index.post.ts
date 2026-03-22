@@ -1,27 +1,12 @@
 import { createWebhook } from '../../utils/webhooks'
 import { waitForEngine } from '../../utils/engine'
+import { WebhookCreateSchema } from '../../utils/schemas'
 
 export default defineEventHandler(async (event) => {
   await waitForEngine()
-  const body = await readBody(event)
+  const body = await readValidatedBody(event, WebhookCreateSchema.parse)
 
-  if (!body?.collection || !body?.event || !body?.url || !body?.secret) {
-    setResponseStatus(event, 400)
-    return { error: 'Velden collection, event, url en secret zijn verplicht' }
-  }
-
-  const validEvents = ['create', 'update', 'delete', 'all']
-  if (!validEvents.includes(body.event)) {
-    setResponseStatus(event, 400)
-    return { error: `Event moet een van: ${validEvents.join(', ')}` }
-  }
-
-  const webhook = await createWebhook({
-    collection: body.collection,
-    event: body.event,
-    url: body.url,
-    secret: body.secret,
-  })
+  const webhook = await createWebhook(body)
 
   setResponseStatus(event, 201)
   return webhook

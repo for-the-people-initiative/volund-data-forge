@@ -43,13 +43,11 @@ const typeLabels: Record<string, string> = {
 </script>
 
 <template>
-  <FtpPanel header="Velden">
-    <template #header>
-      <div class="sb-fields__header">
-        <h4>Velden</h4>
-        <FtpButton label="+ Veld toevoegen" variant="secondary" size="sm" @click="emit('add')" />
-      </div>
-    </template>
+  <div>
+    <div class="sb-fields__header">
+      <h4>Velden</h4>
+      <FtpButton label="+ Veld toevoegen" variant="secondary" size="sm" @click="emit('add')" />
+    </div>
 
     <div ref="listRef" class="sb-fields__list">
       <div v-for="field in localFields" :key="field.name || Math.random()" class="sb-field">
@@ -66,7 +64,7 @@ const typeLabels: Record<string, string> = {
     <p v-if="!fields.length" class="sb-fields__empty">
       Nog geen velden. Klik op "+ Veld toevoegen".
     </p>
-  </FtpPanel>
+  </div>
 </template>
 
 <style scoped>
@@ -86,7 +84,7 @@ const typeLabels: Record<string, string> = {
 .sb-fields__list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
 }
 
 .sb-field {
@@ -113,7 +111,7 @@ const typeLabels: Record<string, string> = {
 
 .sb-field__actions {
   display: flex;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
 }
 
 .sb-fields__empty {

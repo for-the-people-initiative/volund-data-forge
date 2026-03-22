@@ -6,30 +6,37 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:name': [name: string]
+  'update:displayName': [displayName: string]
   'update:singularName': [singularName: string]
 }>()
 
-const localName = ref(props.schema.name)
+const localDisplayName = ref(props.schema.displayName || '')
 const localSingularName = ref(props.schema.singularName || '')
 
+const technicalName = computed(() => deriveTechnicalName(localDisplayName.value))
+
+function deriveTechnicalName(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^a-z0-9_\s]/g, '')
+    .replace(/[\s]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+}
+
 watch(
-  () => props.schema.name,
-  (n) => {
-    localName.value = n
-  },
+  () => props.schema.displayName,
+  (n) => { localDisplayName.value = n || '' },
 )
 
 watch(
   () => props.schema.singularName,
-  (s) => {
-    localSingularName.value = s || ''
-  },
+  (s) => { localSingularName.value = s || '' },
 )
 
-function onNameBlur() {
-  if (localName.value !== props.schema.name) {
-    emit('update:name', localName.value)
+function onDisplayNameBlur() {
+  if (localDisplayName.value !== (props.schema.displayName || '')) {
+    emit('update:displayName', localDisplayName.value)
   }
 }
 
@@ -41,51 +48,44 @@ function onSingularNameBlur() {
 </script>
 
 <template>
-  <FtpPanel header="Collectienaam">
-    <div class="sb-editor">
-      <label for="sb-collection-name" class="sb-editor__label">Collectienaam</label>
+  <div class="sb-editor">
+    <FtpFormField label="Naam collectie" :hint="technicalName ? `Tabelnaam: ${technicalName}` : 'Hieruit wordt automatisch een tabelnaam afgeleid'" label-for="sb-display-name">
       <FtpInputText
-        id="sb-collection-name"
-        v-model="localName"
-        @blur="onNameBlur"
-        @keydown.enter="onNameBlur"
+        id="sb-display-name"
+        v-model="localDisplayName"
+        placeholder="Bijv. Blog Artikelen"
+        @blur="onDisplayNameBlur"
+        @keydown.enter="onDisplayNameBlur"
       />
-      <p class="sb-editor__hint">Gebruik lowercase, underscores voor spaties</p>
-      
-      <label for="sb-singular-name" class="sb-editor__label">Item naam (enkelvoud)</label>
+    </FtpFormField>
+
+    <FtpFormField label="Naam item" hint="Enkelvoudsnaam voor één item uit deze collectie" label-for="sb-singular-name" :required="true">
       <FtpInputText
         id="sb-singular-name"
         v-model="localSingularName"
+        placeholder="Bijv. Artikel"
         required
         @blur="onSingularNameBlur"
         @keydown.enter="onSingularNameBlur"
       />
-      <p class="sb-editor__hint">Naam voor één item uit deze collectie</p>
-    </div>
-  </FtpPanel>
+    </FtpFormField>
+  </div>
 </template>
 
 <style scoped>
 .sb-editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs, 4px);
-}
-
-.sb-editor__label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  text-transform: capitalize;
+  gap: var(--space-m, 16px);
 }
 
 .sb-editor :deep(.input-text) {
   width: 100%;
 }
 
-.sb-editor__hint {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin: 0;
+.sb-editor :deep(.input-text:disabled),
+.sb-editor :deep(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 </style>

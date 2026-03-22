@@ -37,7 +37,7 @@ const reverseLinkLabel = computed(() => 'meerdere')
 .sb-relation-diagram__edge {
   display: flex;
   align-items: center;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
   flex: 1;
   min-width: 0;
 }

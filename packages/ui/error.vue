@@ -39,7 +39,7 @@ const handleClear = () => clearError({ redirect: '/' })
   max-width: 420px;
   background: var(--surface-panel, #11162d);
   border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-l, 12px);
+  border-radius: var(--radius-large);
   padding: var(--space-xl, 40px) var(--space-l, 28px);
   display: flex;
   flex-direction: column;

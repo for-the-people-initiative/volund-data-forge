@@ -1,173 +1,142 @@
 <script setup lang="ts">
+import type { CollectionSchema } from '@data-engine/schema'
+
 definePageMeta({ layout: 'data-engine' })
 
 const config = useRuntimeConfig()
 const baseUrl = config.public.dataEngine.apiBaseUrl
+const { activeSchema, schemaParams } = useDbSchema()
 
 const {
   data: collections,
   status,
   error: fetchError,
-  refresh: refreshCollections,
-} = await useFetch<Array<{ name: string; count: number; fieldCount: number }>>(
-  `${baseUrl}/collections-list`,
-  { key: 'collections-list' },
-)
+} = await useFetch<Array<{ name: string; count: number; icon?: string }>>(`${baseUrl}/collections-list`, {
+  key: computed(() => `collections-list-${activeSchema.value}`),
+  params: schemaParams(),
+  watch: [activeSchema],
+})
 
-const defaultCollections = ['contacts', 'companies']
-const showWizard = ref(false)
+// Client-side mounted state to prevent hydration mismatch
+// (server may have data while client starts with 'pending')
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
+})
 
-function checkWizard() {
-  if (typeof window === 'undefined') return
-  if (localStorage.getItem('onboarding-wizard-dismissed') === 'true') return
-  const cols = collections.value ?? []
-  const hasCustom = cols.some((c) => !defaultCollections.includes(c.name))
-  showWizard.value = !hasCustom
-}
-
-function onWizardDone() {
-  showWizard.value = false
-  refreshCollections()
-}
-
-onMounted(checkWizard)
-watch(collections, checkWizard)
-
-const collectionLabels: Record<string, string> = {
+const labels: Record<string, string> = {
   contacts: 'Contacten',
   companies: 'Bedrijven',
 }
 
-const collectionIcons: Record<string, string> = {
+const defaultEmoji: Record<string, string> = {
   contacts: '👤',
   companies: '🏢',
 }
 
-function label(name: string) {
-  return collectionLabels[name] ?? name
+function getCollectionIcon(col: { name: string; icon?: string }) {
+  return col.icon || defaultEmoji[col.name] || '📁'
 }
 
-function icon(name: string) {
-  return collectionIcons[name] ?? '📁'
+// --- New collection wizard ---
+const showNewDialog = ref(false)
+const isSaving = ref(false)
+const saveError = ref<string | null>(null)
+
+function openNewDialog() {
+  saveError.value = null
+  showNewDialog.value = true
+}
+
+async function handleCreate(schema: CollectionSchema) {
+  isSaving.value = true
+  saveError.value = null
+  try {
+    const payload = JSON.parse(JSON.stringify(toRaw(schema)))
+    await $fetch('/api/schema', { method: 'POST', body: payload, params: schemaParams() })
+    showNewDialog.value = false
+    await refreshNuxtData('collections-list-page')
+    await navigateTo(`/collections/${payload.name}`)
+  } catch (err: unknown) {
+    let msg = err instanceof Error ? ((err as Error & { data?: { error?: { message?: string; details?: string[] } } }).data?.error?.message || err.message) : 'Aanmaken mislukt'
+    if (err instanceof Error) {
+      const details = (err as Error & { data?: { error?: { details?: string[] } } }).data?.error?.details
+      if (details && Array.isArray(details)) {
+        msg += ': ' + details.join(', ')
+      }
+    }
+    saveError.value = msg
+  } finally {
+    isSaving.value = false
+  }
 }
 </script>
 
 <template>
-  <div class="dashboard">
-    <OnboardingWizard v-if="showWizard" @done="onWizardDone" />
-    <h1 class="dashboard__title">Dashboard</h1>
-    <p class="dashboard__subtitle">CRM Overzicht</p>
+  <div>
+    <h1>Collecties</h1>
 
-    <div v-if="status === 'pending'" class="dashboard__loading">
+    <FtpButton label="+ Nieuwe collectie" variant="primary" @click="openNewDialog" style="margin-top: var(--space-m, 16px); align-self: flex-start;" />
+
+    <SchemaBuilderCollectionWizard
+      :visible="showNewDialog"
+      :is-saving="isSaving"
+      :save-error="saveError"
+      @update:visible="showNewDialog = $event"
+      @update:save-error="saveError = $event"
+      @create="handleCreate"
+    />
+
+    <!-- Use mounted check to prevent hydration mismatch between server/client loading state -->
+    <div v-if="!mounted || status === 'pending'" class="collections-loading">
       <FtpProgressSpinner />
     </div>
 
-    <FtpMessage
-      v-else-if="fetchError"
-      severity="error"
-    >
+    <FtpMessage v-else-if="fetchError" severity="error">
       ⚠️ Fout bij laden:
-      {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
+      {{ fetchError?.message ?? 'Onbekende fout' }}
     </FtpMessage>
 
-    <div v-else class="dashboard__grid">
+    <div v-else class="collections-grid">
       <NuxtLink
         v-for="col in collections"
         :key="col.name"
         :to="`/collections/${col.name}`"
-        class="dashboard__card"
+        class="collections-grid__link"
       >
-        <span class="dashboard__card-icon">{{ icon(col.name) }}</span>
-        <div class="dashboard__card-body">
-          <h3 class="dashboard__card-title">{{ label(col.name) }}</h3>
-          <span class="dashboard__card-count">{{ col.count }} records</span>
-        </div>
-        <span class="dashboard__card-arrow">→</span>
+        <FtpCard>
+          <template #title>
+            <span class="collections-grid__name">{{ getCollectionIcon(col) }} {{ labels[col.name] ?? col.name }}</span>
+          </template>
+          <template #content>
+            <FtpBadge :value="`${col.count} records`" severity="info" />
+          </template>
+        </FtpCard>
       </NuxtLink>
     </div>
   </div>
 </template>
 
 <style scoped>
-.dashboard {
-  max-width: 800px;
-}
-
-.dashboard__title {
-  color: var(--text-heading);
-  margin: 0 0 var(--space-2xs, 4px);
-}
-
-.dashboard__subtitle {
-  color: var(--text-muted);
-  margin: 0 0 var(--space-l, 28px);
-  font-size: 0.9375rem;
-}
-
-.dashboard__loading {
-  padding: var(--space-2xl, 68px) 0;
-  text-align: center;
-}
-
-.dashboard__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-m, 16px);
-  margin-bottom: var(--space-l, 28px);
-}
-
-.dashboard__card {
+.collections-loading {
   display: flex;
-  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl, 36px) 0;
+}
+
+.collections-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: var(--space-m, 16px);
-  padding: var(--space-m, 16px) var(--space-l, 28px);
-  background: var(--surface-panel, #11162d);
-  border: 1px solid var(--border-default, #242e5c);
-  border-radius: var(--radius-rounded, 8px);
+  margin-top: var(--space-l, 28px);
+}
+
+.collections-grid__link {
   text-decoration: none;
   color: inherit;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
 }
 
-.dashboard__card:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-elevated, #161c3a);
-}
-
-.dashboard__card-icon {
-  font-size: 2rem;
-}
-
-.dashboard__card-body {
-  flex: 1;
-}
-
-.dashboard__card-title {
-  margin: 0;
-  color: var(--text-heading);
-  font-size: 1.125rem;
-}
-
-.dashboard__card-count {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.dashboard__card-arrow {
-  color: var(--text-subtle);
-  font-size: 1.25rem;
-}
-
-/* ─── Mobile < 768px ─── */
-@media (max-width: 767px) {
-  .dashboard__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard__card {
-    padding: var(--space-s, 10px) var(--space-m, 16px);
-  }
+.collections-grid__name {
+  text-transform: capitalize;
 }
 </style>

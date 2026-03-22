@@ -1,9 +1,19 @@
 <script setup lang="ts">
-const { activeSchema, schemas, loading, fetchSchemas, createSchema, deleteSchema, switchSchema } = useDbSchema()
+const { activeSchema, schemas, loading, fetchSchemas, createSchema, deleteSchema, switchSchema, updateSchemaMeta } = useDbSchema()
 
 const emit = defineEmits<{
   (e: 'change', schema: string): void
 }>()
+
+// Popover state
+const popoverOpen = ref(false)
+const triggerRef = ref<InstanceType<typeof FtpButton> | null>(null)
+
+// Client-side mounted state for hydration-safe rendering
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
+})
 
 // Dialog state
 const showCreateDialog = ref(false)
@@ -15,19 +25,86 @@ const schemaToDelete = ref('')
 const cascadeDelete = ref(false)
 const deleting = ref(false)
 
-// Fetch schemas on mount
+// Inline description edit state
+const editingDescription = ref<string | null>(null) // schema name being edited
+const editDescriptionValue = ref('')
+
 onMounted(() => {
   fetchSchemas()
 })
 
-function onSelect(name: string) {
-  if (name === '__create__') {
-    showCreateDialog.value = true
-    return
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function togglePopover() {
+  popoverOpen.value = !popoverOpen.value
+  if (!popoverOpen.value) {
+    editingDescription.value = null
   }
+}
+
+function closePopover() {
+  popoverOpen.value = false
+  editingDescription.value = null
+}
+
+function selectSchema(name: string) {
   switchSchema(name)
   emit('change', name)
+  closePopover()
 }
+
+function openCreateDialog() {
+  closePopover()
+  showCreateDialog.value = true
+  // Auto-focus input when dialog opens
+  nextTick(() => {
+    const input = document.getElementById('new-schema-name') as HTMLInputElement
+    input?.focus()
+  })
+}
+
+function confirmDelete(name: string) {
+  closePopover()
+  schemaToDelete.value = name
+  cascadeDelete.value = false
+  showDeleteDialog.value = true
+}
+
+function startEditDescription(schemaName: string, currentDescription?: string) {
+  editingDescription.value = schemaName
+  editDescriptionValue.value = currentDescription || ''
+}
+
+async function saveDescription() {
+  if (editingDescription.value === null) return
+  const name = editingDescription.value
+  const desc = editDescriptionValue.value.trim()
+  const schema = schemas.value.find(s => s.name === name)
+  // Only save if changed
+  if (schema && (schema.description || '') !== desc) {
+    try {
+      await updateSchemaMeta(name, { description: desc || undefined })
+    } catch (e) {
+      console.error('Failed to update schema description:', e)
+    }
+  }
+  editingDescription.value = null
+}
+
+function onDescriptionKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    saveDescription()
+  } else if (e.key === 'Escape') {
+    editingDescription.value = null
+  }
+}
+
+/** Get the active schema's description */
+const activeSchemaDescription = computed(() => {
+  return schemas.value.find(s => s.name === activeSchema.value)?.description
+})
 
 async function onCreateSchema() {
   const name = newSchemaName.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
@@ -46,12 +123,6 @@ async function onCreateSchema() {
   }
 }
 
-function confirmDelete(name: string) {
-  schemaToDelete.value = name
-  cascadeDelete.value = false
-  showDeleteDialog.value = true
-}
-
 async function onDeleteSchema() {
   deleting.value = true
   try {
@@ -64,26 +135,104 @@ async function onDeleteSchema() {
     deleting.value = false
   }
 }
+
+// Close on click outside
+function onDocumentClick(e: MouseEvent) {
+  if (!popoverOpen.value) return
+  const target = e.target as HTMLElement
+  // triggerRef is a component ref, use $el to get the DOM element
+  const triggerEl = triggerRef.value?.$el as HTMLElement | undefined
+  if (triggerEl?.contains(target)) return
+  const popover = document.querySelector('.schema-selector__popover')
+  if (popover?.contains(target)) return
+  closePopover()
+}
+
+// Close on Escape
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && popoverOpen.value) {
+    closePopover()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick)
+  document.addEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick)
+  document.removeEventListener('keydown', onKeydown)
+})
 </script>
 
 <template>
   <div class="schema-selector">
-    <span class="schema-selector__label">Schema</span>
-    <div class="schema-selector__controls">
-      <select
-        class="schema-selector__select"
-        :value="activeSchema"
-        @change="onSelect(($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="s in schemas" :key="s" :value="s">{{ s }}</option>
-        <option value="__create__">+ Nieuw schema...</option>
-      </select>
-      <button
-        v-if="activeSchema !== 'public'"
-        class="schema-selector__delete-btn"
-        title="Schema verwijderen"
-        @click="confirmDelete(activeSchema)"
-      >🗑️</button>
+    <FtpButton
+      ref="triggerRef"
+      class="schema-selector__trigger"
+      :title="activeSchemaDescription || undefined"
+      variant="secondary"
+      @click="togglePopover"
+      :aria-expanded="popoverOpen"
+      aria-haspopup="listbox"
+    >
+      <!-- Use mounted check to prevent hydration mismatch (server='public', client=localStorage value) -->
+      <span class="schema-selector__name">{{ mounted ? capitalize(activeSchema) : 'Schema' }}</span>
+      <span class="schema-selector__chevron">▾</span>
+    </FtpButton>
+
+    <div v-if="popoverOpen" class="schema-selector__popover">
+      <ul class="schema-selector__list" role="listbox">
+        <li
+          v-for="s in schemas"
+          :key="s.name"
+          class="schema-selector__item"
+          :class="{ 'schema-selector__item--active': s.name === activeSchema }"
+          role="option"
+          :aria-selected="s.name === activeSchema"
+          @click="selectSchema(s.name)"
+        >
+          <span class="schema-selector__indicator">{{ s.name === activeSchema ? '●' : '' }}</span>
+          <div class="schema-selector__item-content">
+            <span class="schema-selector__item-name">{{ capitalize(s.name) }}</span>
+            <!-- Inline description edit for active schema -->
+            <template v-if="s.name === activeSchema && editingDescription === s.name">
+              <FtpInputText
+                class="schema-selector__desc-input"
+                v-model="editDescriptionValue"
+                placeholder="Beschrijving toevoegen…"
+                @blur="saveDescription"
+                @keydown="onDescriptionKeydown"
+                @click.stop
+                ref="descInput"
+                autofocus
+              />
+            </template>
+            <template v-else-if="s.description || s.name === activeSchema">
+              <span
+                class="schema-selector__item-desc"
+                :class="{ 'schema-selector__item-desc--editable': s.name === activeSchema }"
+                @click.stop="s.name === activeSchema && startEditDescription(s.name, s.description)"
+              >
+                {{ s.description || (s.name === activeSchema ? 'Beschrijving toevoegen…' : '') }}
+              </span>
+            </template>
+          </div>
+          <FtpButton
+            v-if="s.name !== 'public'"
+            class="schema-selector__item-delete"
+            title="Schema verwijderen"
+            variant="secondary"
+            size="sm"
+            @click.stop="confirmDelete(s.name)"
+          >🗑️</FtpButton>
+        </li>
+      </ul>
+      <div class="schema-selector__divider" />
+      <FtpButton class="schema-selector__create" variant="secondary" @click="openCreateDialog">
+        + Nieuw schema
+      </FtpButton>
     </div>
 
     <!-- Create Dialog -->
@@ -91,7 +240,7 @@ async function onDeleteSchema() {
       v-model:visible="showCreateDialog"
       header="Nieuw Schema"
       :modal="true"
-      :style="{ width: '360px' }"
+      size="sm"
     >
       <div class="schema-selector__dialog-body">
         <label for="new-schema-name">Schemanaam</label>
@@ -117,7 +266,7 @@ async function onDeleteSchema() {
       v-model:visible="showDeleteDialog"
       header="Schema Verwijderen"
       :modal="true"
-      :style="{ width: '400px' }"
+      size="sm"
     >
       <div class="schema-selector__dialog-body">
         <p>Weet je zeker dat je schema <strong>{{ schemaToDelete }}</strong> wilt verwijderen?</p>
@@ -138,63 +287,185 @@ async function onDeleteSchema() {
 
 <style scoped>
 .schema-selector {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2xs, 4px);
+  position: relative;
 }
 
-.schema-selector__label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  opacity: 0.6;
-  padding: 0 var(--space-s, 10px);
-}
-
-.schema-selector__controls {
+.schema-selector__trigger {
   display: flex;
   align-items: center;
   gap: var(--space-2xs, 4px);
-  padding: 0 var(--space-xs, 6px);
-}
-
-.schema-selector__select {
-  flex: 1;
-  background: var(--surface-muted, #1e1e2e);
-  color: var(--text-default, #cdd6f4);
-  border: 1px solid var(--border-subtle, #45475a);
-  border-radius: var(--radius-default, 5px);
-  padding: var(--space-2xs, 4px) var(--space-xs, 6px);
-  font-size: 0.8rem;
-  cursor: pointer;
-  outline: none;
-}
-
-.schema-selector__select:focus {
-  border-color: var(--border-focus, #f97316);
-}
-
-.schema-selector__select option {
-  background: var(--surface-panel, #181825);
-  color: var(--text-default, #cdd6f4);
-}
-
-.schema-selector__delete-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.8rem;
-  padding: 2px 4px;
+  padding: var(--space-2xs, 4px) var(--space-xs, 6px);
   border-radius: var(--radius-default, 5px);
-  opacity: 0.6;
+  transition: background 0.15s, color 0.15s;
+}
+
+.schema-selector__trigger:hover {
+  background: var(--surface-muted, #1e1e2e);
+}
+
+.schema-selector__trigger:focus-visible {
+  outline: 2px solid var(--border-focus, #f97316);
+  outline-offset: 2px;
+}
+
+.schema-selector__name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-heading, #cdd6f4);
+}
+
+.schema-selector__chevron {
+  font-size: 0.9rem;
+  color: var(--text-secondary, #a6adc8);
+  margin-left: var(--space-3xs);
+}
+
+/* Popover */
+.schema-selector__popover {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--space-2xs, 4px);
+  min-width: 240px;
+  background: var(--surface-panel, #181825);
+  border: 1px solid var(--border-subtle, #45475a);
+  border-radius: var(--radius-rounded, 8px);
+  box-shadow: var(--shadow-m);
+  z-index: 1100;
+  padding: var(--space-2xs, 4px) 0;
+}
+
+.schema-selector__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.schema-selector__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xs, 6px);
+  padding: var(--space-xs, 6px) var(--space-s, 10px);
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #a6adc8);
+  transition: background 0.12s, color 0.12s;
+}
+
+.schema-selector__item:hover {
+  background: var(--surface-muted, #1e1e2e);
+  color: var(--text-default, #cdd6f4);
+}
+
+.schema-selector__item--active {
+  color: var(--text-default, #cdd6f4);
+}
+
+.schema-selector__indicator {
+  width: 14px;
+  text-align: center;
+  font-size: 0.6rem;
+  color: var(--intent-action-default, #f97316);
+  flex-shrink: 0;
+  margin-top: var(--space-2xs);
+}
+
+.schema-selector__item-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.schema-selector__item-name {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.schema-selector__item-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary, #a6adc8);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.schema-selector__item-desc--editable {
+  cursor: text;
+  opacity: 0.7;
   transition: opacity 0.15s;
 }
 
-.schema-selector__delete-btn:hover {
+.schema-selector__item-desc--editable:hover {
+  opacity: 1;
+  text-decoration: underline dotted;
+}
+
+.schema-selector__desc-input {
+  font-size: 0.75rem;
+  color: var(--text-default, #cdd6f4);
+  background: var(--surface-muted, #1e1e2e);
+  border: 1px solid var(--border-subtle, #45475a);
+  border-radius: var(--radius-default, 5px);
+  padding: var(--space-3xs) var(--space-2xs);
+  width: 100%;
+  outline: none;
+  margin-top: var(--space-3xs);
+}
+
+.schema-selector__desc-input:focus {
+  border-color: var(--intent-action-default, #f97316);
+}
+
+.schema-selector__item-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--radius-default, 5px);
+  opacity: 0;
+  transition: opacity 0.15s;
+  margin-top: var(--space-3xs);
+}
+
+.schema-selector__item:hover .schema-selector__item-delete {
+  opacity: 0.6;
+}
+
+.schema-selector__item:hover .schema-selector__item-delete:hover {
   opacity: 1;
 }
 
+.schema-selector__divider {
+  height: 1px;
+  background: var(--border-subtle, #45475a);
+  margin: var(--space-2xs, 4px) 0;
+}
+
+.schema-selector__create {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--space-xs, 6px) var(--space-s, 10px);
+  font-size: 0.875rem;
+  color: var(--text-secondary, #a6adc8);
+  transition: background 0.12s, color 0.12s;
+}
+
+.schema-selector__create:hover {
+  background: var(--surface-muted, #1e1e2e);
+  color: var(--text-default, #cdd6f4);
+}
+
+/* Dialog styles */
 .schema-selector__dialog-body {
   display: flex;
   flex-direction: column;
@@ -220,3 +491,5 @@ async function onDeleteSchema() {
   cursor: pointer;
 }
 </style>
+
+<!-- Dialog width controlled via size prop -->

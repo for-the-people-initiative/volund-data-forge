@@ -259,7 +259,11 @@ export default defineNitroPlugin(async (nitroApp) => {
     })
   }
 
-  // 7. Export engine + managers for server routes
+  // 7b. Ensure schema metadata table exists
+  await adapter.ensureSchemaMetaTable()
+  logger.info('[data-engine] Schema metadata table ready')
+
+  // 8. Export engine + managers for server routes
   setMigrationManager(migrationManager)
   setEngine(engine, registry, adapter, apiRouter)
   logger.info('[data-engine] ✅ CRM Ready (persistent)')

@@ -232,7 +232,9 @@ const boolOptions = [
   </FtpPanel>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+@use "@for-the-people-initiative/design-system/scss/mixins/breakpoint" as *;
+
 .fb__header {
   display: flex;
   align-items: center;
@@ -289,18 +291,18 @@ const boolOptions = [
   height: 30px;
 }
 
-/* Override FTP component styles for light backgrounds */
+/* Override FTP component styles for panel context */
 .fb__field :deep(.input-text),
 .fb__field :deep(.input-text input),
 .fb__field :deep(.select-wrapper),
 .fb__field :deep(.select-wrapper .select) {
-  background: var(--surface-panel) !important;
-  color: var(--text-default) !important;
+  background: var(--surface-panel);
+  color: var(--text-default);
 }
 
 .fb__field :deep(.input-text::placeholder),
 .fb__field :deep(.input-text input::placeholder) {
-  color: var(--text-subtle) !important;
+  color: var(--text-subtle);
 }
 
 .fb__date-input:focus {
@@ -324,7 +326,7 @@ const boolOptions = [
   border: 0;
 }
 
-@media (max-width: 767px) {
+@include breakpoint-to(phone) {
   .fb__grid {
     grid-template-columns: 1fr;
   }

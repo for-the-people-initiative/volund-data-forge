@@ -11,6 +11,21 @@ const emit = defineEmits<{
 const sb = useSchemaBuilder({ initialCollection: props.initialCollection })
 sb.init()
 
+const activeTab = ref<'general' | 'fields' | 'api'>('general')
+
+// No collection list: create a new collection once schemas have been loaded
+if (!props.initialCollection) {
+  // loadAllSchemas() in init() replaces collections.value after the API call.
+  // Watch the ref identity change to know when loading is done.
+  let hasFired = false
+  watch(sb.collections, () => {
+    if (!hasFired && !sb.activeCollection.value) {
+      hasFired = true
+      sb.createCollection()
+    }
+  })
+}
+
 async function handleSave() {
   const name = await sb.saveSchema()
   if (name) emit('saved', name)
@@ -36,14 +51,6 @@ async function handleDelete() {
       </FtpMessage>
     </Transition>
 
-    <SchemaBuilderCollectionList
-      :collections="sb.collections.value"
-      :active-name="sb.activeCollectionName.value"
-      @select="sb.selectCollection"
-      @create="sb.createCollection"
-      @delete="sb.deleteCollection"
-    />
-
     <div class="sb-main">
       <!-- Loading overlay -->
       <div v-if="sb.isLoading.value" class="sb-loading">
@@ -52,12 +59,40 @@ async function handleDelete() {
       </div>
 
       <template v-if="sb.activeCollection.value">
+        <div class="sb-tabs">
+          <button
+            class="sb-tabs__tab"
+            :class="{ 'sb-tabs__tab--active': activeTab === 'general' }"
+            @click="activeTab = 'general'"
+          >
+            Algemeen
+          </button>
+          <button
+            class="sb-tabs__tab"
+            :class="{ 'sb-tabs__tab--active': activeTab === 'fields' }"
+            @click="activeTab = 'fields'"
+          >
+            Velden
+          </button>
+          <button
+            v-if="sb.isEditMode.value"
+            class="sb-tabs__tab"
+            :class="{ 'sb-tabs__tab--active': activeTab === 'api' }"
+            @click="activeTab = 'api'"
+          >
+            API
+          </button>
+        </div>
+
         <SchemaBuilderCollectionEditor
+          v-if="activeTab === 'general'"
           :schema="sb.activeCollection.value"
-          @update:name="sb.updateCollectionName"
+          @update:display-name="sb.updateDisplayName"
+          @update:singular-name="sb.updateSingularName"
         />
 
         <SchemaBuilderFieldList
+          v-if="activeTab === 'fields'"
           :fields="sb.activeCollection.value.fields"
           @add="sb.onAddField"
           @edit="sb.onEditField"
@@ -67,7 +102,7 @@ async function handleDelete() {
 
         <!-- API Surface Configuration -->
         <ApiSurfaceEditor
-          v-if="sb.isEditMode.value"
+          v-if="activeTab === 'api' && sb.isEditMode.value"
           :schema="sb.activeCollection.value"
           @saved="handleSave"
         />
@@ -93,22 +128,9 @@ async function handleDelete() {
           <span v-if="sb.isDirty.value" class="sb-actions__dirty">● Onopgeslagen wijzigingen</span>
         </div>
 
-        <FtpButton
-          :label="sb.showPreview.value ? '🔽 Verberg preview' : '🔼 Toon schema preview'"
-          variant="secondary"
-          size="sm"
-          @click="sb.showPreview.value = !sb.showPreview.value"
-        />
-
-        <SchemaBuilderSchemaPreview
-          v-if="sb.showPreview.value"
-          :schema="sb.activeCollection.value"
-        />
+        <!-- Schema preview (TODO: terugplaatsen in later stadium) -->
       </template>
 
-      <div v-else class="sb-empty">
-        <p>Selecteer of maak een collectie aan om te beginnen.</p>
-      </div>
     </div>
 
     <SchemaBuilderFieldTypePicker
@@ -132,11 +154,13 @@ async function handleDelete() {
   </div>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+@use "@for-the-people-initiative/design-system/scss/mixins/breakpoint" as *;
+
 .sb-container {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-l, 28px);
+  gap: var(--space-l);
   min-height: 70vh;
   position: relative;
 }
@@ -145,31 +169,50 @@ async function handleDelete() {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-m, 16px);
+  gap: var(--space-m);
   position: relative;
 }
 
-.sb-empty {
+.sb-tabs {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
+  gap: var(--space-m);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.sb-tabs__tab {
+  padding: var(--space-s) var(--space-m);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sb-tabs__tab:hover {
+  color: var(--text-default);
+}
+
+.sb-tabs__tab--active {
+  color: var(--intent-action-default);
+  border-bottom-color: var(--intent-action-default);
+  font-weight: 600;
 }
 
 .sb-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-s, 10px);
+  gap: var(--space-s);
 }
 
 .sb-actions__delete :deep(.button) {
-  border-color: #dc2626;
-  color: #f87171;
+  border-color: var(--feedback-error);
+  color: var(--feedback-errorEmphasis);
 }
 .sb-actions__delete :deep(.button:hover) {
-  background: #2e0a0a;
+  background: var(--feedback-errorSubtle);
 }
 
 .sb-actions__dirty {
@@ -180,14 +223,14 @@ async function handleDelete() {
 .sb-loading {
   position: absolute;
   inset: 0;
-  background: rgba(6, 8, 19, 0.7);
+  background: var(--surface-overlay);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-s, 10px);
+  gap: var(--space-s);
   z-index: 10;
-  border-radius: var(--radius-default, 5px);
+  border-radius: var(--radius-default);
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
@@ -204,7 +247,7 @@ async function handleDelete() {
   transform: translateY(-10px);
 }
 
-@media (max-width: 767px) {
+@include breakpoint-to(tablet) {
   .sb-container {
     flex-direction: column;
   }

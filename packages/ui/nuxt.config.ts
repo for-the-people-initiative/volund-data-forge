@@ -14,8 +14,7 @@ export default defineNuxtConfig({
   ],
 
   css: [
-    '@for-the-people-initiative/design-system/css',
-    '@for-the-people-initiative/design-system/css/theme-dark.css',
+    '~/assets/css/design-system.css',
     '~/assets/css/fonts.css',
   ],
 
@@ -27,6 +26,27 @@ export default defineNuxtConfig({
 
   typescript: {
     strict: true,
+  },
+
+  vite: {
+    resolve: {
+      alias: {
+        // Resolve design system CSS exports to actual dist files
+        '@for-the-people-initiative/design-system/css/theme-dark.css': resolve(__dirname, 'node_modules/@for-the-people-initiative/design-system/dist/css/theme-dark.css'),
+        '@for-the-people-initiative/design-system/css': resolve(__dirname, 'node_modules/@for-the-people-initiative/design-system/dist/css/tokens.css'),
+      },
+    },
+    css: {
+      preprocessorOptions: {
+        scss: {
+          // @ts-expect-error - Vite 5+ sass api option, types not updated
+          api: 'modern-compiler',
+          loadPaths: [
+            resolve(__dirname, 'node_modules'),
+          ],
+        },
+      },
+    },
   },
 
   // Runtime config defaults (overridable by consuming app)

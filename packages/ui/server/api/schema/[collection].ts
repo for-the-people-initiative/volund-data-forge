@@ -3,12 +3,13 @@
  * PUT    /api/schema/:collection — update a collection schema (with migration)
  * DELETE /api/schema/:collection — remove a collection from registry
  */
+import type { H3Event } from 'h3'
 import { getRegistry, getMigrationManager, getAdapter, waitForEngine } from '../../utils/engine'
 
 /**
  * Helper to scope adapter to a specific database schema, restoring after.
  */
-async function withSchema<T>(event: any, fn: () => Promise<T>): Promise<T> {
+async function withSchema<T>(event: H3Event, fn: () => Promise<T>): Promise<T> {
   const query = getQuery(event)
   const schemaName = query.schema as string | undefined
   if (!schemaName) return fn()
@@ -34,14 +35,12 @@ export default defineEventHandler(async (event) => {
   await waitForEngine()
   const collection = getRouterParam(event, 'collection')
   if (!collection) {
-    setResponseStatus(event, 400)
-    return { error: { code: 'MISSING_COLLECTION', message: 'Collection name required' } }
+    throw createError({ status: 400, message: 'Collection name required', data: { code: 'MISSING_COLLECTION' } })
   }
 
   // Block access to internal collections
   if (isInternalCollection(collection)) {
-    setResponseStatus(event, 404)
-    return { error: { code: 'NOT_FOUND', message: 'Collection not found' } }
+    throw createError({ status: 404, message: 'Collection not found', data: { code: 'NOT_FOUND' } })
   }
 
   const method = getMethod(event)
@@ -51,8 +50,7 @@ export default defineEventHandler(async (event) => {
   if (method === 'GET') {
     const schema = registry.get(collection)
     if (!schema) {
-      setResponseStatus(event, 404)
-      return { error: { code: 'NOT_FOUND', message: `Schema "${collection}" not found` } }
+      throw createError({ status: 404, message: `Schema "${collection}" not found`, data: { code: 'NOT_FOUND' } })
     }
     return schema
   }
@@ -61,14 +59,12 @@ export default defineEventHandler(async (event) => {
   if (method === 'PUT') {
     const existing = registry.get(collection)
     if (!existing) {
-      setResponseStatus(event, 404)
-      return { error: { code: 'NOT_FOUND', message: `Schema "${collection}" not found` } }
+      throw createError({ status: 404, message: `Schema "${collection}" not found`, data: { code: 'NOT_FOUND' } })
     }
 
     const body = await readBody<CollectionSchema>(event)
     if (!body || !body.fields) {
-      setResponseStatus(event, 400)
-      return { error: { code: 'INVALID_BODY', message: 'Request body must include fields' } }
+      throw createError({ status: 400, message: 'Request body must include fields', data: { code: 'INVALID_BODY' } })
     }
 
     // Ensure name matches route param
@@ -81,38 +77,38 @@ export default defineEventHandler(async (event) => {
       .filter((n) => n !== collection)
     const errors = validateSchema(body, knownCollections)
     if (errors.length > 0) {
-      setResponseStatus(event, 400)
-      return {
-        error: {
-          code: 'VALIDATION_FAILED',
-          message: 'Schema validation failed',
-          details: errors,
-        },
-      }
+      throw createError({
+        status: 400,
+        message: 'Schema validation failed',
+        data: { code: 'VALIDATION_FAILED', details: errors },
+      })
     }
 
     try {
       return await withSchema(event, async () => {
         const mm = getMigrationManager()
         if (!mm) {
-          setResponseStatus(event, 500)
-          return {
-            error: { code: 'NO_MIGRATION_MANAGER', message: 'Migration manager not available' },
-          }
+          throw createError({
+            status: 500,
+            message: 'Migration manager not available',
+            data: { code: 'NO_MIGRATION_MANAGER' },
+          })
         }
 
         const result = await mm.applySchema(body, { force: true })
         if (!result.success) {
-          setResponseStatus(event, 500)
-          return { error: { code: 'MIGRATION_FAILED', message: 'Migration failed', details: result } }
+          throw createError({
+            status: 500,
+            message: 'Migration failed',
+            data: { code: 'MIGRATION_FAILED', details: result },
+          })
         }
 
         return registry.get(collection)
       })
     } catch (err) {
       if (err instanceof DataEngineError) {
-        setResponseStatus(event, err.statusCode)
-        return { error: err.toJSON() }
+        throw createError({ status: err.statusCode, message: err.message, data: err.toJSON() })
       }
       throw err
     }
@@ -122,8 +118,7 @@ export default defineEventHandler(async (event) => {
   if (method === 'DELETE') {
     const existing = registry.get(collection)
     if (!existing) {
-      setResponseStatus(event, 404)
-      return { error: { code: 'NOT_FOUND', message: `Schema "${collection}" not found` } }
+      throw createError({ status: 404, message: `Schema "${collection}" not found`, data: { code: 'NOT_FOUND' } })
     }
 
     try {
@@ -136,13 +131,11 @@ export default defineEventHandler(async (event) => {
       })
     } catch (err) {
       if (err instanceof DataEngineError) {
-        setResponseStatus(event, err.statusCode)
-        return { error: err.toJSON() }
+        throw createError({ status: err.statusCode, message: err.message, data: err.toJSON() })
       }
       throw err
     }
   }
 
-  setResponseStatus(event, 405)
-  return { error: { code: 'METHOD_NOT_ALLOWED', message: `Method ${method} not allowed` } }
+  throw createError({ status: 405, message: `Method ${method} not allowed`, data: { code: 'METHOD_NOT_ALLOWED' } })
 })

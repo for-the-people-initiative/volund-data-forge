@@ -79,6 +79,16 @@ function dismiss() {
   emit('done')
 }
 
+// Auto-focus first input when step changes
+watch(step, (newStep) => {
+  if (newStep === 2) {
+    nextTick(() => {
+      const input = document.querySelector('.wizard__step input') as HTMLInputElement
+      input?.focus()
+    })
+  }
+})
+
 async function createCollection() {
   creating.value = true
   createError.value = ''

@@ -1,10 +1,13 @@
 import type { CollectionSchema, FieldDefinition } from '@data-engine/schema'
+import { $fetch as fetch } from 'ofetch'
+import { getErrorMessage } from '../types/api-response'
 
 /**
  * Composable that manages all schema builder state and logic.
  * Extracted from Container.vue to keep it a thin orchestration wrapper.
  */
 export function useSchemaBuilder(options?: { initialCollection?: string }) {
+  const { schemaParams } = useDbSchema()
   // --- State ---
   const collections = ref<CollectionSchema[]>([])
   const activeCollectionName = ref<string | null>(null)
@@ -40,18 +43,17 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
   // --- API Integration ---
   async function loadAllSchemas() {
     try {
-      const schemas = await $fetch<CollectionSchema[]>('/api/schema')
+      const schemas = await fetch<CollectionSchema[]>('/api/schema', { params: schemaParams() })
       collections.value = schemas || []
-    } catch (err: any) {
-      const msg = err?.data?.error?.message || err?.message || 'Kon schema\'s niet laden'
-      showFeedback('error', msg)
+    } catch (err: unknown) {
+      showFeedback('error', getErrorMessage(err, 'Kon schema\'s niet laden'))
     }
   }
 
   async function loadSchema(collectionName: string) {
     isLoading.value = true
     try {
-      const schema = await $fetch<CollectionSchema>(`/api/schema/${collectionName}`)
+      const schema = await fetch<CollectionSchema>(`/api/schema/${collectionName}`, { params: schemaParams() })
       const idx = collections.value.findIndex((c) => c.name === schema.name)
       if (idx >= 0) {
         collections.value[idx] = schema
@@ -61,9 +63,8 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
       activeCollectionName.value = schema.name
       isEditMode.value = true
       isDirty.value = false
-    } catch (err: any) {
-      const msg = err?.data?.error?.message || err?.message || 'Kon schema niet laden'
-      showFeedback('error', msg)
+    } catch (err: unknown) {
+      showFeedback('error', getErrorMessage(err, 'Kon schema niet laden'))
     } finally {
       isLoading.value = false
     }
@@ -79,20 +80,22 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
 
     try {
       if (isEditMode.value) {
-        await $fetch(`/api/schema/${payload.name}`, { method: 'PUT', body: payload })
+        await fetch(`/api/schema/${payload.name}`, { method: 'PUT', body: payload, params: schemaParams() })
         showFeedback('success', `Collectie "${payload.name}" bijgewerkt`)
       } else {
-        await $fetch('/api/schema', { method: 'POST', body: payload })
+        await fetch('/api/schema', { method: 'POST', body: payload, params: schemaParams() })
         isEditMode.value = true
         showFeedback('success', `Collectie "${payload.name}" aangemaakt`)
       }
       isDirty.value = false
       return payload.name
-    } catch (err: any) {
-      const errorData = err?.data?.error
-      let msg = errorData?.message || err?.message || 'Opslaan mislukt'
-      if (errorData?.details && Array.isArray(errorData.details)) {
-        msg += ': ' + errorData.details.join(', ')
+    } catch (err: unknown) {
+      let msg = getErrorMessage(err, 'Opslaan mislukt')
+      if (err instanceof Error) {
+        const errorData = (err as Error & { data?: { error?: { details?: string[] } } }).data?.error
+        if (errorData?.details && Array.isArray(errorData.details)) {
+          msg += ': ' + errorData.details.join(', ')
+        }
       }
       showFeedback('error', msg)
       return null
@@ -114,16 +117,15 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
     isLoading.value = true
     clearFeedback()
     try {
-      await $fetch(`/api/schema/${name}`, { method: 'DELETE' })
+      await fetch(`/api/schema/${name}`, { method: 'DELETE', params: schemaParams() })
       collections.value = collections.value.filter((c) => c.name !== name)
       activeCollectionName.value = collections.value[0]?.name ?? null
       isEditMode.value = false
       isDirty.value = false
       showFeedback('success', `Collectie "${name}" verwijderd`)
       return name
-    } catch (err: any) {
-      const msg = err?.data?.error?.message || err?.message || 'Verwijderen mislukt'
-      showFeedback('error', msg)
+    } catch (err: unknown) {
+      showFeedback('error', getErrorMessage(err, 'Verwijderen mislukt'))
       return null
     } finally {
       isLoading.value = false
@@ -143,7 +145,7 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
     while (collections.value.some((c) => c.name === name)) {
       name = `${baseName}_${i++}`
     }
-    const schema: CollectionSchema = { name, fields: [] }
+    const schema: CollectionSchema = { name, displayName: 'Nieuwe collectie', singularName: '', fields: [] }
     collections.value.push(schema)
     activeCollectionName.value = name
     isEditMode.value = false
@@ -173,6 +175,15 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
     }
   }
 
+  function deriveTechnicalName(input: string): string {
+    return input
+      .toLowerCase()
+      .replace(/[^a-z0-9_\s]/g, '')
+      .replace(/[\s]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+  }
+
   function updateCollectionName(newName: string) {
     if (!activeCollection.value) return
     const trimmed = newName.trim().toLowerCase().replace(/\s+/g, '_')
@@ -184,6 +195,26 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
       activeCollectionName.value = trimmed
       markDirty()
     }
+  }
+
+  function updateSingularName(singularName: string) {
+    if (!activeCollection.value) return
+    activeCollection.value.singularName = singularName
+    markDirty()
+  }
+
+  function updateDisplayName(displayName: string) {
+    if (!activeCollection.value) return
+    activeCollection.value.displayName = displayName
+    const techName = deriveTechnicalName(displayName)
+    if (
+      techName &&
+      !collections.value.some((c) => c.name === techName && c !== activeCollection.value)
+    ) {
+      activeCollection.value.name = techName
+      activeCollectionName.value = techName
+    }
+    markDirty()
   }
 
   // --- Field CRUD ---
@@ -350,6 +381,8 @@ export function useSchemaBuilder(options?: { initialCollection?: string }) {
     selectCollection,
     deleteCollection,
     updateCollectionName,
+    updateDisplayName,
+    updateSingularName,
     // Field CRUD
     onAddField,
     onTypeSelected,

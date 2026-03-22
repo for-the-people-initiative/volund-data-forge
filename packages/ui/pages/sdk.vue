@@ -4,6 +4,29 @@
     <section class="sdk__hero">
       <h1 class="sdk__title">🔧 SDK's</h1>
       <p class="sdk__subtitle">Download een SDK voor je favoriete programmeertaal, gegenereerd uit je huidige schema.</p>
+
+      <!-- Editable App Name -->
+      <div class="sdk__app-name-wrapper">
+        <span class="sdk__app-name-label">Applicatie</span>
+        <div
+          v-if="!editingAppName"
+          class="sdk__app-name"
+          title="Klik om te bewerken"
+          @click="startEditAppName"
+        >
+          <span class="sdk__app-name-text">{{ appName }}</span>
+          <span class="sdk__app-name-edit-icon">✏️</span>
+        </div>
+        <FtpInputText
+          v-else
+          ref="appNameInput"
+          v-model="appNameDraft"
+          class="sdk__app-name-input"
+          @blur="saveAppName"
+          @keydown.enter="($event.target as HTMLInputElement).blur()"
+          @keydown.escape="cancelEditAppName"
+        />
+      </div>
     </section>
 
     <!-- Language Cards -->
@@ -15,13 +38,12 @@
         <FtpCard v-for="lang in languages" :key="lang.language" class="sdk__card">
           <template #title>
             <span>{{ getEmoji(lang.language) }} {{ capitalize(lang.language) }}</span>
-            <FtpBadge :value="lang.status || 'beschikbaar'" :severity="lang.status === 'coming soon' ? 'warning' : 'success'" />
+            <FtpBadge :value="lang.status || 'beschikbaar'" :severity="lang.status?.includes('coming') ? 'warning' : 'success'" />
           </template>
           <template #content>
-            <div class="sdk__card-actions">
+            <div v-if="!lang.status?.includes('coming')" class="sdk__card-actions">
               <FtpButton
                 size="sm"
-                :disabled="lang.status === 'coming soon'"
                 @click="downloadSdk(lang.language)"
               >
                 ⬇️ Download
@@ -59,7 +81,52 @@
 </template>
 
 <script setup lang="ts">
+import { $fetch as fetch } from 'ofetch'
+
 const { activeSchema, schemaParams } = useDbSchema()
+
+// --- Editable App Name ---
+const editingAppName = ref(false)
+const appNameDraft = ref('')
+const appNameInput = ref<HTMLInputElement | null>(null)
+
+const appNameStorageKey = computed(() =>
+  activeSchema.value ? `vdf-app-name:${activeSchema.value}` : null
+)
+
+const appName = computed(() => {
+  if (!appNameStorageKey.value) return 'Mijn Applicatie'
+  if (import.meta.client) {
+    const stored = localStorage.getItem(appNameStorageKey.value)
+    if (stored) return stored
+  }
+  return activeSchema.value || 'Mijn Applicatie'
+})
+
+function startEditAppName() {
+  appNameDraft.value = appName.value
+  editingAppName.value = true
+  nextTick(() => {
+    appNameInput.value?.focus()
+    appNameInput.value?.select()
+  })
+}
+
+function saveAppName() {
+  const trimmed = appNameDraft.value.trim()
+  if (trimmed && appNameStorageKey.value) {
+    if (trimmed === activeSchema.value) {
+      localStorage.removeItem(appNameStorageKey.value)
+    } else {
+      localStorage.setItem(appNameStorageKey.value, trimmed)
+    }
+  }
+  editingAppName.value = false
+}
+
+function cancelEditAppName() {
+  editingAppName.value = false
+}
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -117,7 +184,7 @@ async function togglePreview(langId: string) {
   try {
     const schema = activeSchema.value
     const url = `/api/sdk/${langId}/preview${schema ? `?schema=${schema}` : ''}`
-    const data = await $fetch<PreviewResponse>(url)
+    const data = await fetch<PreviewResponse>(url)
     previewData.value = data
   } catch {
     previewData.value = { helloWorld: '// Fout bij laden voorbeeld', quickStart: [], testCommand: '', collections: [] }
@@ -142,7 +209,8 @@ function downloadSdk(langId: string) {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@use "@for-the-people-initiative/design-system/scss/mixins/breakpoint" as *;
 .sdk {
   max-width: 900px;
   margin: 0 auto;
@@ -169,6 +237,73 @@ function downloadSdk(langId: string) {
   margin: 0;
 }
 
+.sdk__app-name-wrapper {
+  margin-top: var(--space-l, 24px);
+  padding: var(--space-m, 16px) var(--space-l, 24px);
+  background: var(--surface-panel);
+  border: 1px solid var(--border-subtle, #1a2244);
+  border-radius: var(--radius-default, 5px);
+  display: inline-block;
+}
+
+.sdk__app-name-label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #8b95a5);
+  margin-bottom: var(--space-2xs, 4px);
+}
+
+.sdk__app-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs, 6px);
+  cursor: pointer;
+  border-radius: var(--radius-default, 5px);
+  padding: var(--space-2xs, 4px) var(--space-xs, 6px);
+  transition: background 0.15s;
+}
+
+.sdk__app-name:hover {
+  background: var(--surface-muted);
+}
+
+.sdk__app-name-text {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--intent-action-default);
+}
+
+.sdk__app-name-edit-icon {
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sdk__app-name:hover .sdk__app-name-edit-icon {
+  opacity: 0.6;
+}
+
+.sdk__app-name-input {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: var(--text-heading);
+  background: transparent;
+  border: 1px solid var(--border-subtle, #1a2244);
+  border-radius: var(--radius-default, 5px);
+  padding: var(--space-2xs, 4px) var(--space-xs, 6px);
+  text-align: center;
+  outline: none;
+  width: 100%;
+  max-width: 500px;
+}
+
+.sdk__app-name-input:focus {
+  border-color: var(--intent-action-default);
+}
+
 .sdk__section {
   display: flex;
   flex-direction: column;
@@ -189,7 +324,7 @@ function downloadSdk(langId: string) {
 
 .sdk__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-m, 16px);
 }
 
@@ -220,8 +355,8 @@ function downloadSdk(langId: string) {
 }
 
 .sdk__code {
-  background: #0d1117;
-  color: #c9d1d9;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
   border: 1px solid var(--border-subtle, #1a2244);
   border-radius: var(--radius-default, 5px);
   padding: var(--space-m, 16px);
@@ -253,7 +388,7 @@ function downloadSdk(langId: string) {
   margin-bottom: var(--space-2xs, 4px);
 }
 
-@media (max-width: 767px) {
+@include breakpoint-to(tablet) {
   .sdk {
     max-width: 100%;
   }

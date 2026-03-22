@@ -2,10 +2,13 @@
  * Composable for managing database schemas (namespaces).
  * Not to be confused with useSchema which handles collection field schemas.
  */
+import type { SchemaMeta } from '@data-engine/adapter'
+import { $fetch as fetch } from 'ofetch'
+
 const STORAGE_KEY = 'vdf-active-schema'
 
 const activeSchema = ref<string>('public')
-const schemas = ref<string[]>([])
+const schemas = ref<SchemaMeta[]>([])
 const loading = ref(false)
 
 let initialized = false
@@ -28,16 +31,21 @@ export function useDbSchema() {
     }
   }
 
+  /** Schema names as strings (backward compat) */
+  const schemaNames = computed(() => schemas.value.map((s) => s.name))
+
   async function fetchSchemas() {
     loading.value = true
     try {
-      const res = await $fetch<{ data: string[] }>(`${baseUrl}/schemas`)
+      const res = await fetch<{ data: SchemaMeta[] }>(`${baseUrl}/schemas`)
       const list = res.data ?? []
       // Always include 'public' as first option
-      if (!list.includes('public')) list.unshift('public')
+      if (!list.find((s: SchemaMeta) => s.name === 'public')) {
+        list.unshift({ name: 'public' })
+      }
       schemas.value = list
       // Ensure activeSchema is valid
-      if (!schemas.value.includes(activeSchema.value)) {
+      if (!schemaNames.value.includes(activeSchema.value)) {
         persistSchema('public')
       }
     } catch (e) {
@@ -48,7 +56,7 @@ export function useDbSchema() {
   }
 
   async function createSchema(name: string) {
-    await $fetch(`${baseUrl}/schemas`, {
+    await fetch(`${baseUrl}/schemas`, {
       method: 'POST',
       body: { name },
     })
@@ -56,13 +64,21 @@ export function useDbSchema() {
   }
 
   async function deleteSchema(name: string, cascade = false) {
-    await $fetch(`${baseUrl}/schemas/${name}`, {
+    await fetch(`${baseUrl}/schemas/${name}`, {
       method: 'DELETE',
       params: cascade ? { cascade: 'true' } : undefined,
     })
     if (activeSchema.value === name) {
       persistSchema('public')
     }
+    await fetchSchemas()
+  }
+
+  async function updateSchemaMeta(name: string, meta: { description?: string; icon?: string }) {
+    await fetch(`${baseUrl}/schemas/${name}`, {
+      method: 'PATCH',
+      body: meta,
+    })
     await fetchSchemas()
   }
 
@@ -84,10 +100,12 @@ export function useDbSchema() {
   return {
     activeSchema: readonly(activeSchema),
     schemas: readonly(schemas),
+    schemaNames,
     loading: readonly(loading),
     fetchSchemas,
     createSchema,
     deleteSchema,
+    updateSchemaMeta,
     switchSchema,
     schemaParams,
   }

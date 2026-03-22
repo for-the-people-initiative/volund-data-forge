@@ -12,6 +12,7 @@ import ConfirmDialog from '@for-the-people-initiative/design-system/components/C
 import DataTable from '@for-the-people-initiative/design-system/components/DataTable'
 import Dialog from '@for-the-people-initiative/design-system/components/Dialog'
 import Drawer from '@for-the-people-initiative/design-system/components/Drawer'
+import FormField from '@for-the-people-initiative/design-system/components/FormField'
 import Message from '@for-the-people-initiative/design-system/components/Message'
 import InputNumber from '@for-the-people-initiative/design-system/components/InputNumber'
 import InputSwitch from '@for-the-people-initiative/design-system/components/InputSwitch'
@@ -40,6 +41,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('FtpDataTable', DataTable)
   nuxtApp.vueApp.component('FtpDialog', Dialog)
   nuxtApp.vueApp.component('FtpDrawer', Drawer)
+  nuxtApp.vueApp.component('FtpFormField', FormField)
   nuxtApp.vueApp.component('FtpMessage', Message)
   nuxtApp.vueApp.component('FtpInputNumber', InputNumber)
   nuxtApp.vueApp.component('FtpInputSwitch', InputSwitch)

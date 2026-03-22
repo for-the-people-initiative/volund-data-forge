@@ -2,6 +2,7 @@
  * GET  /api/schema — list all registered collection schemas
  * POST /api/schema — register a new collection schema
  */
+import type { H3Event } from 'h3'
 import { getRegistry, getMigrationManager, waitForEngine } from '../../utils/engine'
 import { validateSchema, isInternalCollection, DataEngineError } from '@data-engine/schema'
 import type { CollectionSchema } from '@data-engine/schema'
@@ -9,7 +10,7 @@ import type { CollectionSchema } from '@data-engine/schema'
 /**
  * Helper to scope adapter to a specific database schema, restoring after.
  */
-async function withSchema<T>(event: any, fn: () => Promise<T>): Promise<T> {
+async function withSchema<T>(event: H3Event, fn: () => Promise<T>): Promise<T> {
   const query = getQuery(event)
   const schemaName = query.schema as string | undefined
   if (!schemaName) return fn()
@@ -46,27 +47,22 @@ export default defineEventHandler(async (event) => {
     const body = await readBody<CollectionSchema>(event)
 
     if (!body || !body.name) {
-      setResponseStatus(event, 400)
-      return {
-        error: {
-          code: 'INVALID_BODY',
-          message: 'Request body must include a collection schema with a name',
-        },
-      }
+      throw createError({
+        status: 400,
+        message: 'Request body must include a collection schema with a name',
+        data: { code: 'INVALID_BODY' },
+      })
     }
 
     // Validate schema
     const knownCollections = registry.getAll().map((s) => s.name)
     const errors = validateSchema(body, knownCollections)
     if (errors.length > 0) {
-      setResponseStatus(event, 400)
-      return {
-        error: {
-          code: 'VALIDATION_FAILED',
-          message: 'Schema validation failed',
-          details: errors,
-        },
-      }
+      throw createError({
+        status: 400,
+        message: 'Schema validation failed',
+        data: { code: 'VALIDATION_FAILED', details: errors },
+      })
     }
 
     // Tag collection with the database schema
@@ -83,14 +79,11 @@ export default defineEventHandler(async (event) => {
           // Use migration manager (registers + creates table + tracks version)
           const result = await mm.applySchema(body)
           if (!result.success) {
-            setResponseStatus(event, 500)
-            return {
-              error: {
-                code: 'MIGRATION_FAILED',
-                message: 'Failed to create collection',
-                details: result,
-              },
-            }
+            throw createError({
+              status: 500,
+              message: 'Failed to create collection',
+              data: { code: 'MIGRATION_FAILED', details: result },
+            })
           }
         } else {
           // Fallback: direct register + create
@@ -105,13 +98,11 @@ export default defineEventHandler(async (event) => {
       })
     } catch (err) {
       if (err instanceof DataEngineError) {
-        setResponseStatus(event, err.statusCode)
-        return { error: err.toJSON() }
+        throw createError({ status: err.statusCode, message: err.message, data: err.toJSON() })
       }
       throw err
     }
   }
 
-  setResponseStatus(event, 405)
-  return { error: { code: 'METHOD_NOT_ALLOWED', message: `Method ${method} not allowed` } }
+  throw createError({ status: 405, message: `Method ${method} not allowed`, data: { code: 'METHOD_NOT_ALLOWED' } })
 })

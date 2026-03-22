@@ -4,8 +4,12 @@ import { mkdtempSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import archiver from 'archiver'
+import { applyRateLimit } from '../../utils/rate-limit'
 
 export default defineEventHandler(async (event) => {
+  // Rate limit: 5 SDK generations per minute per IP
+  applyRateLimit(event, 'sdk', 5, 60_000)
+
   const language = getRouterParam(event, 'language') || 'typescript'
   const query = getQuery(event)
   const schemaName = typeof query.schema === 'string' ? query.schema : undefined
@@ -27,8 +31,7 @@ export default defineEventHandler(async (event) => {
   })
 
   if (!result.success) {
-    event.node.res.statusCode = 500
-    return { error: result.error }
+    throw createError({ status: 500, message: result.error || 'SDK generation failed', data: { code: 'SDK_GENERATION_FAILED' } })
   }
 
   const projectName = schemaName || 'data-engine'

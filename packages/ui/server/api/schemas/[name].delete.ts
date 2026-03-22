@@ -9,8 +9,7 @@ export default defineEventHandler(async (event) => {
   const name = getRouterParam(event, 'name')
 
   if (!name) {
-    setResponseStatus(event, 400)
-    return { error: { code: 'MISSING_NAME', message: 'Schema name required' } }
+    throw createError({ status: 400, message: 'Schema name required', data: { code: 'MISSING_NAME' } })
   }
 
   const query = getQuery(event)
@@ -22,7 +21,10 @@ export default defineEventHandler(async (event) => {
     setResponseStatus(event, 204)
     return null
   } catch (err) {
-    setResponseStatus(event, 500)
-    return { error: { code: 'SCHEMA_DROP_FAILED', message: err instanceof Error ? err.message : String(err) } }
+    throw createError({
+      status: 500,
+      message: err instanceof Error ? err.message : String(err),
+      data: { code: 'SCHEMA_DROP_FAILED' },
+    })
   }
 })

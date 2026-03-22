@@ -10,6 +10,11 @@
  * (buttons, checkboxes, inputs, selects) use FTP design system components.
  */
 import type { FilterValue } from './FilterBar.vue'
+import type { CollectionRecord, getRecordId as _gri, getRecordLabel as _grl } from '../types/collection-record'
+import type { CollectionListResponse } from '../types/api-response'
+import type { SchemaField, FilterField } from '../types/schema-field'
+import { getRecordId, getRecordLabel } from '../types/collection-record'
+import { getErrorMessage } from '../types/api-response'
 import DataForm from './DataForm.vue'
 
 const props = defineProps<{
@@ -23,7 +28,8 @@ const { fields, schema, status: schemaStatus } = useSchema(toRef(() => props.col
 const { deleteRecord } = useDataEngine()
 
 const singularName = computed(() => {
-  return (schema.value as any)?.singularName || props.collection
+  const s = schema.value as Record<string, unknown> | null
+  return (s?.singularName as string) || props.collection
 })
 
 // ─── Bulk selection ─────────────────────────────────────────
@@ -33,18 +39,18 @@ const bulkDeleteTarget = ref(false)
 const toastMessage = ref('')
 
 const allSelected = computed({
-  get: () => records.value.length > 0 && records.value.every((r: any) => selectedIds.value.has(r.id ?? r._id)),
+  get: () => records.value.length > 0 && records.value.every((r) => selectedIds.value.has(getRecordId(r))),
   set: (val: boolean) => {
     if (val) {
-      records.value.forEach((r: any) => selectedIds.value.add(r.id ?? r._id))
+      records.value.forEach((r) => selectedIds.value.add(getRecordId(r)))
     } else {
       selectedIds.value.clear()
     }
   },
 })
 
-function toggleSelect(record: any) {
-  const id = record.id ?? record._id
+function toggleSelect(record: CollectionRecord) {
+  const id = getRecordId(record)
   if (selectedIds.value.has(id)) {
     selectedIds.value.delete(id)
   } else {
@@ -73,7 +79,7 @@ async function executeBulkDelete() {
     bulkDeleteTarget.value = false
     showToast(`${count} record(s) verwijderd`)
     await refresh()
-  } catch (err: any) {
+  } catch {
     showToast('Bulk verwijderen mislukt')
   } finally {
     bulkDeleting.value = false
@@ -81,7 +87,7 @@ async function executeBulkDelete() {
 }
 
 function exportSelectedJson() {
-  const selected = records.value.filter((r: any) => selectedIds.value.has(r.id ?? r._id))
+  const selected = records.value.filter((r) => selectedIds.value.has(getRecordId(r)))
   const json = JSON.stringify(selected, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -104,16 +110,16 @@ const deleteSuccess = ref(false)
 const editTarget = ref<{ id: string; record: Record<string, unknown> } | null>(null)
 const editModalVisible = ref(false)
 
-function confirmDelete(record: any, e: Event) {
+function confirmDelete(record: CollectionRecord, e: Event) {
   e.stopPropagation()
-  const id = record.id ?? record._id
-  const label = record.name ?? record.title ?? record.label ?? id
+  const id = getRecordId(record)
+  const label = getRecordLabel(record)
   deleteTarget.value = { id, label }
 }
 
-function confirmEdit(record: any, e: Event) {
+function confirmEdit(record: CollectionRecord, e: Event) {
   e.stopPropagation()
-  const id = record.id ?? record._id
+  const id = getRecordId(record)
   editTarget.value = { id, record: { ...record } }
   editModalVisible.value = true
 }
@@ -132,8 +138,8 @@ async function executeDelete() {
       deleteSuccess.value = false
     }, 2000)
     await refresh()
-  } catch (err: any) {
-    deleteError.value = err?.data?.error?.message ?? err?.message ?? 'Verwijderen mislukt'
+  } catch (err: unknown) {
+    deleteError.value = getErrorMessage(err, 'Verwijderen mislukt')
   } finally {
     deleting.value = false
   }
@@ -161,22 +167,6 @@ const sortField = ref<string | null>(null)
 const sortDir = ref<'asc' | 'desc'>('asc')
 const currentPage = ref(1)
 const effectivePageSize = computed(() => props.pageSize ?? 20)
-
-// ─── Views functionality removed per VDF-016 ─────────────────
-
-// loadViews function removed per VDF-016
-
-// persistViews function removed per VDF-016
-
-// saveView function removed per VDF-016
-
-// viewOptions computed property removed per VDF-016
-
-// switchView function removed per VDF-016
-
-// deleteView function removed per VDF-016
-
-// onMounted loadViews call removed per VDF-016
 
 // ─── Build API URL with filter/sort params ──────────────────
 const apiUrl = computed(() => {
@@ -212,13 +202,18 @@ const {
   refresh,
 } = await useFetch(apiUrl, { key: `records-${props.collection}`, watch: [apiUrl] })
 
-const records = computed(() => {
-  const raw = (response.value as any)?.data ?? (response.value as any) ?? []
-  return Array.isArray(raw) ? raw : []
+const records = computed<CollectionRecord[]>(() => {
+  const raw = response.value as CollectionListResponse | CollectionRecord[] | null
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  if ('data' in raw && Array.isArray(raw.data)) return raw.data
+  return []
 })
 
 const totalRecords = computed(() => {
-  return (response.value as any)?.meta?.total ?? records.value.length
+  const raw = response.value as CollectionListResponse | null
+  if (raw && !Array.isArray(raw) && raw.meta?.total != null) return raw.meta.total
+  return records.value.length
 })
 
 const totalPages = computed(() =>
@@ -236,14 +231,14 @@ const columns = computed(() => {
   return fields.value.filter((f) => !['id', 'created_at', 'updated_at'].includes(f.name))
 })
 
-const filterFields = computed(() => {
+const filterFields = computed<FilterField[]>(() => {
   return fields.value
     .filter((f) => !['id', 'created_at', 'updated_at'].includes(f.name))
     .map((f) => ({
       name: f.name,
       type: f.type,
       label: f.label,
-      options: (f as any).options,
+      options: f.options,
     }))
 })
 
@@ -279,21 +274,19 @@ function isEditable(col: { name: string; type: string }) {
   return EDITABLE_TYPES.has(col.type)
 }
 
-function startEdit(record: any, col: { name: string; type: string }, e: Event) {
+function startEdit(record: CollectionRecord, col: { name: string; type: string }, e: Event) {
   if (!isEditable(col)) return
   e.stopPropagation()
-  const rowId = record.id ?? record._id
+  const rowId = getRecordId(record)
   editingCell.value = { rowId, field: col.name }
-  // For select fields, use the raw value; for others, use the current value or empty string
   editValue.value = col.type === 'select' 
-    ? ((record as any)[col.name] ?? '') 
-    : ((record as any)[col.name] ?? '')
+    ? String(record[col.name] ?? '')
+    : String(record[col.name] ?? '')
   editError.value = null
   nextTick(() => {
     const input = document.querySelector('.dt__inline-input--active') as HTMLInputElement | HTMLSelectElement
     if (input) {
       input.focus()
-      // For text inputs, select all text for easy editing
       if (input instanceof HTMLInputElement && col.type !== 'select') {
         input.select()
       }
@@ -306,7 +299,7 @@ function cancelEdit() {
   editValue.value = ''
 }
 
-function validateField(col: any, value: string): string | null {
+function validateField(col: SchemaField, value: string): string | null {
   if (col.required && !value && value !== '0') return 'Verplicht veld'
   if (col.type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Ongeldig e-mailadres'
   if (col.type === 'url' && value && !/^https?:\/\/.+/.test(value)) return 'Ongeldige URL'
@@ -330,7 +323,7 @@ async function saveEdit() {
   const col = fields.value.find((f) => f.name === field)
   if (!col) return
 
-  const validationError = validateField(col, editValue.value)
+  const validationError = validateField(col as SchemaField, editValue.value)
   if (validationError) {
     editError.value = { rowId, field, message: validationError }
     return
@@ -354,11 +347,11 @@ async function saveEdit() {
     editingCell.value = null
     editValue.value = ''
     await refresh()
-  } catch (err: any) {
+  } catch (err: unknown) {
     editError.value = {
       rowId,
       field,
-      message: err?.data?.error?.message ?? err?.message ?? 'Opslaan mislukt',
+      message: getErrorMessage(err, 'Opslaan mislukt'),
     }
   } finally {
     editSaving.value = false
@@ -375,15 +368,15 @@ function onEditKeydown(e: KeyboardEvent) {
   }
 }
 
-function isEditingCell(record: any, fieldName: string): boolean {
+function isEditingCell(record: CollectionRecord, fieldName: string): boolean {
   if (!editingCell.value) return false
-  const rowId = record.id ?? record._id
+  const rowId = getRecordId(record)
   return editingCell.value.rowId === rowId && editingCell.value.field === fieldName
 }
 
-function hasEditError(record: any, fieldName: string): boolean {
+function hasEditError(record: CollectionRecord, fieldName: string): boolean {
   if (!editError.value) return false
-  const rowId = record.id ?? record._id
+  const rowId = getRecordId(record)
   return editError.value.rowId === rowId && editError.value.field === fieldName
 }
 
@@ -433,10 +426,6 @@ function nextPage() {
 
 <template>
   <div class="dt">
-    <!-- Views functionality removed per VDF-016 -->
-
-    <!-- Save dialog removed per VDF-016 -->
-
     <!-- FilterBar -->
     <FilterBar
       :fields="filterFields"
@@ -467,7 +456,7 @@ function nextPage() {
     <div v-else-if="fetchError" class="dt__error">
       <FtpMessage severity="error">
         ⚠️ Fout bij laden:
-        {{ (fetchError as any)?.data?.error?.message ?? fetchError?.message ?? 'Onbekende fout' }}
+        {{ getErrorMessage(fetchError, 'Onbekende fout') }}
       </FtpMessage>
       <FtpButton label="Opnieuw proberen" variant="secondary" size="sm" @click="refresh()" />
     </div>
@@ -505,14 +494,14 @@ function nextPage() {
         <tbody>
           <tr
             v-for="(record, i) in records"
-            :key="(record as any).id ?? i"
+            :key="getRecordId(record) || i"
             class="dt__row"
-            :class="{ 'dt__row--selected': selectedIds.has((record as any).id ?? (record as any)._id) }"
+            :class="{ 'dt__row--selected': selectedIds.has(getRecordId(record)) }"
           >
             <td class="dt__td dt__td--checkbox" @click.stop>
               <FtpCheckbox
-                :model-value="selectedIds.has((record as any).id ?? (record as any)._id)"
-                :aria-label="`Selecteer ${(record as any).name ?? (record as any).id ?? 'record'}`"
+                :model-value="selectedIds.has(getRecordId(record))"
+                :aria-label="`Selecteer ${getRecordLabel(record)}`"
                 @update:model-value="toggleSelect(record)"
               />
             </td>
@@ -540,18 +529,18 @@ function nextPage() {
                     @click.stop
                   >
                     <option v-if="!col.required" value="">—</option>
-                    <option v-for="opt in (col as any).options ?? []" :key="opt" :value="opt">{{ opt }}</option>
+                    <option v-for="opt in col.options ?? []" :key="opt" :value="opt">{{ opt }}</option>
                   </select>
                   <!-- Read-only state -->
                   <select
                     v-else
-                    :value="(record as any)[col.name] ?? ''"
+                    :value="String(record[col.name] ?? '')"
                     disabled
                     tabindex="-1"
                     class="dt__inline-input dt__inline-select dt__inline-input--readonly"
                   >
                     <option v-if="!col.required" value="">—</option>
-                    <option v-for="opt in (col as any).options ?? []" :key="opt" :value="opt">{{ opt }}</option>
+                    <option v-for="opt in col.options ?? []" :key="opt" :value="opt">{{ opt }}</option>
                   </select>
                 </template>
                 
@@ -570,7 +559,7 @@ function nextPage() {
                   <!-- Read-only state -->
                   <input
                     v-else
-                    :value="formatValue((record as any)[col.name], col.type)"
+                    :value="formatValue(record[col.name], col.type)"
                     readonly
                     tabindex="-1"
                     class="dt__inline-input dt__inline-input--readonly"
@@ -585,33 +574,33 @@ function nextPage() {
               <template v-else>
                 <FtpTag 
                   v-if="col.type === 'select'" 
-                  :value="(record as any)[col.name] ?? '—'" 
+                  :value="String(record[col.name] ?? '—')" 
                   class="dt__status-tag" 
-                  :data-value="String((record as any)[col.name] ?? '').toLowerCase()"
+                  :data-value="String(record[col.name] ?? '').toLowerCase()"
                 />
                 <span
                   v-else-if="col.type === 'boolean'"
-                  :class="(record as any)[col.name] ? 'dt__bool--true' : 'dt__bool--false'"
+                  :class="record[col.name] ? 'dt__bool--true' : 'dt__bool--false'"
                 >
-                  {{ (record as any)[col.name] ? '✓' : '✗' }}
+                  {{ record[col.name] ? '✓' : '✗' }}
                 </span>
                 <span v-else-if="col.type === 'relation'" class="dt__relation">
-                  {{ (record as any)[col.name] ?? '—' }}
+                  {{ record[col.name] ?? '—' }}
                 </span>
-                <span v-else-if="col.type === 'file' && (record as any)[col.name]" class="dt__file" @click.stop>
+                <span v-else-if="col.type === 'file' && record[col.name]" class="dt__file" @click.stop>
                   <img
-                    v-if="isImagePath(String((record as any)[col.name]))"
-                    :src="String((record as any)[col.name])"
-                    :alt="fileNameFromPath(String((record as any)[col.name]))"
+                    v-if="isImagePath(String(record[col.name]))"
+                    :src="String(record[col.name])"
+                    :alt="fileNameFromPath(String(record[col.name]))"
                     class="dt__file-thumb"
                   />
-                  <a v-else :href="String((record as any)[col.name])" target="_blank" class="dt__file-link">
-                    📎 {{ fileNameFromPath(String((record as any)[col.name])) }}
+                  <a v-else :href="String(record[col.name])" target="_blank" class="dt__file-link">
+                    📎 {{ fileNameFromPath(String(record[col.name])) }}
                   </a>
                 </span>
                 <span v-else-if="col.type === 'file'">—</span>
                 <span v-else>
-                  {{ formatValue((record as any)[col.name], col.type) }}
+                  {{ formatValue(record[col.name], col.type) }}
                 </span>
               </template>
             </td>
@@ -622,7 +611,7 @@ function nextPage() {
                   variant="secondary"
                   size="sm"
                   class="dt__edit-btn"
-                  :aria-label="`Bewerk ${(record as any).name ?? (record as any).title ?? (record as any).label ?? (record as any).id ?? 'record'}`"
+                  :aria-label="`Bewerk ${getRecordLabel(record)}`"
                   @click="confirmEdit(record, $event)"
                 />
                 <FtpButton
@@ -630,7 +619,7 @@ function nextPage() {
                   variant="secondary"
                   size="sm"
                   class="dt__delete-btn"
-                  :aria-label="`Verwijder ${(record as any).name ?? (record as any).title ?? (record as any).label ?? (record as any).id ?? 'record'}`"
+                  :aria-label="`Verwijder ${getRecordLabel(record)}`"
                   @click="confirmDelete(record, $event)"
                 />
               </div>
@@ -739,12 +728,6 @@ function nextPage() {
   flex-direction: column;
   gap: var(--space-m, 16px);
 }
-
-/* dt__views-bar styles removed per VDF-016 */
-
-/* dt__view-switcher styles removed per VDF-016 */
-
-/* View dropdown styles removed per VDF-016 */
 
 .dt__dialog-actions {
   display: flex;
@@ -914,7 +897,6 @@ function nextPage() {
   box-shadow: inset 0 0 0 2px var(--feedback-error);
 }
 
-/* Read-only input - looks like normal table text */
 .dt__inline-input--readonly {
   width: 100%;
   background: transparent;
@@ -937,7 +919,6 @@ function nextPage() {
   cursor: default;
 }
 
-/* Active edit input */
 .dt__inline-input--active {
   width: 100%;
   padding: var(--space-3xs, 2px) var(--space-xs, 6px);
@@ -961,7 +942,6 @@ function nextPage() {
   cursor: pointer;
 }
 
-/* Legacy styles for backward compatibility - now unused */
 .dt__inline-input {
   width: 100%;
   padding: var(--space-3xs, 2px) var(--space-xs, 6px);
@@ -1111,7 +1091,6 @@ function nextPage() {
   border: 1px solid var(--border-default) !important;
 }
 
-/* Success/active status - green */
 .dt__status-tag[data-value*="actief"] :deep(.tag),
 .dt__status-tag[data-value*="active"] :deep(.tag),
 .dt__status-tag[data-value*="succes"] :deep(.tag),
@@ -1123,7 +1102,6 @@ function nextPage() {
   border-color: var(--feedback-success) !important;
 }
 
-/* Warning status - orange */
 .dt__status-tag[data-value*="pending"] :deep(.tag),
 .dt__status-tag[data-value*="wachten"] :deep(.tag),
 .dt__status-tag[data-value*="review"] :deep(.tag),
@@ -1134,7 +1112,6 @@ function nextPage() {
   border-color: var(--feedback-warning) !important;
 }
 
-/* Error status - red */
 .dt__status-tag[data-value*="error"] :deep(.tag),
 .dt__status-tag[data-value*="fout"] :deep(.tag),
 .dt__status-tag[data-value*="rejected"] :deep(.tag),
@@ -1146,10 +1123,7 @@ function nextPage() {
   border-color: var(--feedback-error) !important;
 }
 
-/* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {
-  /* dt__views-bar mobile styles removed per VDF-016 */
-
   .dt__table {
     font-size: 0.8125rem;
   }

@@ -4,7 +4,7 @@
 import { getRegistry, waitForEngine } from '../../../utils/engine'
 import { generateOpenApiSpec } from '@data-engine/api'
 
-export default defineEventHandler(async (event) => {
+export default defineCachedEventHandler(async (event) => {
   await waitForEngine()
   const params = getRouterParams(event)
   const schema = params.schema
@@ -18,4 +18,7 @@ export default defineEventHandler(async (event) => {
 
   setResponseHeader(event, 'content-type', 'application/json')
   return spec
+}, {
+  maxAge: 300,
+  swr: true,
 })

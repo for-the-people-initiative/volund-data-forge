@@ -6,13 +6,15 @@ import type { DataEngine } from '@data-engine/engine'
 import type { SchemaRegistry } from '@data-engine/schema'
 import type { DatabaseAdapter } from '@data-engine/adapter'
 import type { ApiRouter } from '@data-engine/api'
-import type { MigrationManager } from '@data-engine/migration'
+import { MigrationManager } from '@data-engine/migration'
+
+type MigrationManagerInstance = InstanceType<typeof MigrationManager>
 
 let _engine: DataEngine | null = null
 let _registry: SchemaRegistry | null = null
 let _adapter: DatabaseAdapter | null = null
 let _apiRouter: ApiRouter | null = null
-let _migrationManager: MigrationManager | null = null
+let _migrationManager: MigrationManagerInstance | null = null
 
 // Readiness gate: resolves when the engine is fully initialized
 let _readyResolve: () => void
@@ -43,11 +45,11 @@ export function setEngine(
   _readyResolve()
 }
 
-export function setMigrationManager(mm: MigrationManager) {
+export function setMigrationManager(mm: MigrationManagerInstance) {
   _migrationManager = mm
 }
 
-export function getMigrationManager(): MigrationManager | null {
+export function getMigrationManager(): MigrationManagerInstance | null {
   return _migrationManager
 }
 

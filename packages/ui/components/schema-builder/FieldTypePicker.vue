@@ -22,6 +22,7 @@ const types = [
     :visible="open"
     header="Kies veldtype"
     :modal="true"
+    size="md"
     @update:visible="!$event && emit('close')"
   >
     <div class="sb-picker__grid" role="listbox" aria-label="Veldtypes">
@@ -40,19 +41,21 @@ const types = [
   </FtpDialog>
 </template>
 
-<style scoped>
+<style lang="scss" scoped>
+@use "@for-the-people-initiative/design-system/scss/mixins/breakpoint" as *;
+
 .sb-picker__grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-s, 10px);
+  gap: var(--space-s);
 }
 
 .sb-picker__item :deep(.button) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2xs, 4px);
-  padding: var(--space-s, 10px);
+  gap: var(--space-m);
+  padding: var(--space-s);
   width: 100%;
 }
 
@@ -64,7 +67,7 @@ const types = [
   color: var(--text-secondary);
 }
 
-@media (max-width: 767px) {
+@include breakpoint-to(tablet) {
   .sb-picker__grid {
     grid-template-columns: repeat(2, 1fr);
   }

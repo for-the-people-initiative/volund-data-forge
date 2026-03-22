@@ -174,7 +174,7 @@ watch(selectedCollection, () => {
 .activity-page__entry-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
-  padding-top: 2px;
+  padding-top: var(--space-3xs);
 }
 
 .activity-page__entry-content {
@@ -204,7 +204,7 @@ watch(selectedCollection, () => {
 .activity-page__entry-time {
   font-size: 0.75rem;
   color: var(--text-secondary);
-  margin-top: 2px;
+  margin-top: var(--space-3xs);
 }
 
 .activity-page__changes {
@@ -221,7 +221,7 @@ watch(selectedCollection, () => {
   font-size: 0.75rem;
   background: var(--surface-muted, #060813);
   padding: var(--space-xs, 6px);
-  border-radius: 3px;
+  border-radius: var(--radius-subtle);
   overflow-x: auto;
   color: var(--text-default);
   margin-top: var(--space-2xs, 4px);

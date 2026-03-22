@@ -2,7 +2,7 @@
 definePageMeta({ layout: 'data-engine' })
 
 const { data, error, status } = await useFetch<{
-  data: Array<Record<string, any>>
+  data: Array<Record<string, unknown>>
   meta?: { total: number }
 }>('/api/collections/contacts')
 
@@ -17,8 +17,8 @@ const columns = [
 
 <template>
   <div class="collections-live">
-    <h1>Live Data — Contacts</h1>
-    <p>Data from SQLite in-memory via Data Engine</p>
+    <h1>Live Data — Contacten</h1>
+    <p>Data vanuit SQLite in-memory via Data Engine</p>
 
     <div v-if="status === 'pending'">
       <FtpProgressSpinner />
@@ -36,10 +36,10 @@ const columns = [
         <FtpTag :value="row.status" :color="row.status === 'active' ? 'success' : row.status === 'inactive' ? 'danger' : 'warning'" rounded />
       </template>
     </FtpDataTable>
-    <div v-else>No contacts found.</div>
+    <div v-else>Geen contacten gevonden.</div>
 
     <p class="meta" v-if="data?.meta">
-      Total records: <strong>{{ data.meta.total }}</strong>
+      Totaal aantal records: <strong>{{ data.meta.total }}</strong>
     </p>
   </div>
 </template>
@@ -48,10 +48,10 @@ const columns = [
 .collections-live {
   max-width: 900px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: var(--space-xl);
 }
 .meta {
-  margin-top: 1rem;
+  margin-top: var(--space-m);
   opacity: 0.6;
 }
 </style>

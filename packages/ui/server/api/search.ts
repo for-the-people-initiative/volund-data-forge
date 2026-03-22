@@ -6,19 +6,18 @@
 import { getAdapter, getRegistry, waitForEngine } from '../utils/engine'
 import type { QueryAST, FilterGroup } from '@data-engine/adapter'
 import { isInternalCollection } from '@data-engine/schema'
+import { SearchQuerySchema } from '../utils/schemas'
+import { applyRateLimit } from '../utils/rate-limit'
 
 const TEXT_FIELD_TYPES = new Set(['text', 'email', 'select'])
 
-export default defineEventHandler(async (event) => {
+export default defineCachedEventHandler(async (event) => {
+  // Rate limit: 60 searches per minute per IP
+  applyRateLimit(event, 'search', 60, 60_000)
+
   await waitForEngine()
 
-  const query = getQuery(event)
-  const q = (query.q as string || '').trim()
-  const perCollection = Math.min(Math.max(Number(query.limit) || 5, 1), 20)
-
-  if (!q) {
-    return { results: [] }
-  }
+  const { q, limit: perCollection } = await getValidatedQuery(event, SearchQuerySchema.parse)
 
   const registry = getRegistry()
   const adapter = getAdapter()
@@ -62,4 +61,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return { results }
+}, {
+  maxAge: 30,
+  swr: true,
 })

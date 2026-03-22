@@ -76,7 +76,7 @@ const emit = defineEmits<{
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
 }
 
 .sb-collections__item {

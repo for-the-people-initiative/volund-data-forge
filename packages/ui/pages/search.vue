@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { $fetch as fetch } from 'ofetch'
+
 definePageMeta({ layout: 'data-engine' })
 
 const route = useRoute()
@@ -30,7 +32,7 @@ async function doSearch(q: string) {
 
   loading.value = true
   try {
-    const data = await $fetch<{ results: typeof results.value }>('/api/search', {
+    const data = await fetch<{ results: typeof results.value }>('/api/search', {
       params: { q: term, limit: 10 },
     })
     results.value = data.results

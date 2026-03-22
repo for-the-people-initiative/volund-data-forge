@@ -1,8 +1,8 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { defineEventHandler, getQuery, type H3Event } from 'h3'
 import { getRegistry, waitForEngine } from '../utils/engine'
 import { generateOpenApiSpec } from '@data-engine/api'
 
-export default defineEventHandler(async (event) => {
+export default defineEventHandler(async (event: H3Event) => {
   await waitForEngine()
 
   const query = getQuery(event)

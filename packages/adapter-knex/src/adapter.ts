@@ -6,12 +6,14 @@ import knex, { type Knex } from 'knex'
 import type { FieldDefinition, Logger } from '@data-engine/schema'
 import type {
   DatabaseAdapter,
+  DatabaseHealth,
   DatabaseSchema,
   FieldChanges,
   FieldType,
   PrimaryKeyStrategy,
   PopulateDefinition,
   QueryAST,
+  SchemaMeta,
   TransactionClient,
 } from '@data-engine/adapter'
 import { ConnectionError, SchemaError, QueryError } from '@data-engine/adapter'
@@ -38,6 +40,7 @@ export interface KnexAdapterConfig {
 export class KnexAdapter implements DatabaseAdapter {
   private knex: Knex | null = null
   private connected = false
+  private connectedSince: string | null = null
   readonly primaryKeyStrategy: PrimaryKeyStrategy
   private logger?: Logger
   private activeSchema: string
@@ -78,6 +81,7 @@ export class KnexAdapter implements DatabaseAdapter {
       // Ping to verify connection
       await this.knex.raw('SELECT 1')
       this.connected = true
+      this.connectedSince = new Date().toISOString()
     } catch (err) {
       this.connected = false
       throw new ConnectionError('Failed to connect to database', err)
@@ -94,6 +98,64 @@ export class KnexAdapter implements DatabaseAdapter {
 
   isConnected(): boolean {
     return this.connected
+  }
+
+  // ── Health ────────────────────────────────────────────────────────
+
+  async health(): Promise<DatabaseHealth> {
+    const adapterName = this.isSQLite()
+      ? 'sqlite'
+      : this.config.client === 'pg'
+        ? 'postgres'
+        : 'mysql'
+
+    const base: DatabaseHealth = {
+      adapter: adapterName,
+      version: 'unknown',
+      host: this.isSQLite()
+        ? this.config.database
+        : `${this.config.host ?? 'localhost'}:${this.config.port ?? (adapterName === 'postgres' ? 5432 : 3306)}`,
+      database: this.config.database,
+      status: 'disconnected',
+      latencyMs: 0,
+      connectedSince: this.connectedSince ?? undefined,
+    }
+
+    if (!this.knex || !this.connected) {
+      base.status = 'disconnected'
+      base.error = 'Not connected'
+      return base
+    }
+
+    try {
+      const start = performance.now()
+      await this.knex.raw('SELECT 1')
+      base.latencyMs = Math.round(performance.now() - start)
+
+      // Get version
+      try {
+        if (this.isSQLite()) {
+          const vResult = await this.knex.raw('SELECT sqlite_version() as v')
+          const ver = Array.isArray(vResult) ? vResult[0]?.v : vResult?.rows?.[0]?.v
+          base.version = `SQLite ${ver ?? '3.x.x'}`
+        } else if (adapterName === 'postgres') {
+          const vResult = await this.knex.raw('SHOW server_version')
+          base.version = `PostgreSQL ${vResult.rows?.[0]?.server_version ?? 'unknown'}`
+        } else {
+          const vResult = await this.knex.raw('SELECT VERSION() as v')
+          base.version = vResult[0]?.[0]?.v ?? 'unknown'
+        }
+      } catch {
+        // version query failed, keep 'unknown'
+      }
+
+      base.status = base.latencyMs > 500 ? 'slow' : 'connected'
+    } catch (err) {
+      base.status = 'disconnected'
+      base.error = err instanceof Error ? err.message : 'Unknown error'
+    }
+
+    return base
   }
 
   // ── DDL Operations (DA-003) ──────────────────────────────────────
@@ -555,6 +617,9 @@ export class KnexAdapter implements DatabaseAdapter {
     } else {
       await db.raw(`CREATE SCHEMA IF NOT EXISTS "${name}"`)
     }
+    // Insert metadata row
+    await this.ensureSchemaMetaTable()
+    await db('_schema_meta').insert({ name }).onConflict('name').merge()
   }
 
   async listSchemas(): Promise<string[]> {
@@ -572,6 +637,11 @@ export class KnexAdapter implements DatabaseAdapter {
 
   async dropSchema(name: string, cascade?: boolean): Promise<void> {
     const db = this.db()
+    // Clean up metadata
+    try {
+      await this.ensureSchemaMetaTable()
+      await db('_schema_meta').where('name', name).delete()
+    } catch (_) { /* ignore if table doesn't exist yet */ }
     if (this.isSQLite()) {
       const path = await import('path')
       const fs = await import('fs')
@@ -601,6 +671,63 @@ export class KnexAdapter implements DatabaseAdapter {
 
   getSchema(): string {
     return this.activeSchema
+  }
+
+  // ── Schema Metadata ──────────────────────────────────────────────
+
+  private _schemaMetaEnsured = false
+
+  async ensureSchemaMetaTable(): Promise<void> {
+    if (this._schemaMetaEnsured) return
+    const db = this.db()
+    const exists = await db.schema.hasTable('_schema_meta')
+    if (!exists) {
+      await db.schema.createTable('_schema_meta', (table) => {
+        table.text('name').primary()
+        table.text('description').nullable()
+        table.text('icon').nullable()
+        table.timestamp('created_at').defaultTo(db.fn.now())
+      })
+    }
+    this._schemaMetaEnsured = true
+  }
+
+  async getSchemaMetadata(name: string): Promise<SchemaMeta | null> {
+    await this.ensureSchemaMetaTable()
+    const db = this.db()
+    const row = await db('_schema_meta').where('name', name).first()
+    if (!row) return null
+    return { name: row.name, description: row.description ?? undefined, icon: row.icon ?? undefined, createdAt: row.created_at ?? undefined }
+  }
+
+  async updateSchemaMetadata(name: string, meta: Partial<Omit<SchemaMeta, 'name'>>): Promise<void> {
+    await this.ensureSchemaMetaTable()
+    const db = this.db()
+    const row: Record<string, unknown> = { name }
+    if (meta.description !== undefined) row.description = meta.description
+    if (meta.icon !== undefined) row.icon = meta.icon
+    if (meta.createdAt !== undefined) row.created_at = meta.createdAt
+    await db('_schema_meta').insert(row).onConflict('name').merge()
+  }
+
+  async listSchemasWithMeta(): Promise<SchemaMeta[]> {
+    await this.ensureSchemaMetaTable()
+    const schemas = await this.listSchemas()
+    const db = this.db()
+    const metaRows = await db('_schema_meta')
+    const metaMap = new Map<string, Record<string, unknown>>()
+    for (const row of metaRows) {
+      metaMap.set(row.name, row)
+    }
+    return schemas.map((name) => {
+      const meta = metaMap.get(name)
+      return {
+        name,
+        description: (meta?.description as string) ?? undefined,
+        icon: (meta?.icon as string) ?? undefined,
+        createdAt: (meta?.created_at as string) ?? undefined,
+      }
+    })
   }
 
   // ── Internal ─────────────────────────────────────────────────────

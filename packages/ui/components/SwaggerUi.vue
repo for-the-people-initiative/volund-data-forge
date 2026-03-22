@@ -46,46 +46,53 @@ watch(() => props.specUrl, () => {
 </template>
 
 <style>
-/* Dark theme overrides for Swagger UI */
+/*
+ * Unscoped styles — intentional.
+ * Swagger UI injects its own DOM and CSS via CDN. Scoped styles cannot
+ * reach its internals, so we use global selectors scoped to
+ * .swagger-container to override 3rd-party styles without leaking.
+ */
+
+/* Dark theme overrides for Swagger UI — using DS tokens */
 .swagger-container .swagger-ui {
-  color: #e0e0e0;
+  color: var(--text-default);
 }
 
 .swagger-container .swagger-ui .info .title,
 .swagger-container .swagger-ui .opblock-tag {
-  color: #f0f0f0;
+  color: var(--text-heading);
 }
 
 .swagger-container .swagger-ui .scheme-container,
 .swagger-container .swagger-ui .opblock .opblock-section-header {
-  background: #1e1e2e;
+  background: var(--surface-panel);
 }
 
 .swagger-container .swagger-ui .opblock {
-  border-color: #444;
-  background: #1a1a2a;
+  border-color: var(--border-default);
+  background: var(--surface-muted);
 }
 
 .swagger-container .swagger-ui .opblock .opblock-summary {
-  border-color: #444;
+  border-color: var(--border-default);
 }
 
 .swagger-container .swagger-ui .btn {
-  color: #e0e0e0;
-  border-color: #666;
+  color: var(--text-default);
+  border-color: var(--border-strong);
 }
 
 .swagger-container .swagger-ui select,
 .swagger-container .swagger-ui input[type="text"],
 .swagger-container .swagger-ui textarea {
-  background: #2a2a3a;
-  color: #e0e0e0;
-  border-color: #555;
+  background: var(--surface-elevated);
+  color: var(--text-default);
+  border-color: var(--border-default);
 }
 
 .swagger-container .swagger-ui .model-box,
 .swagger-container .swagger-ui .model {
-  color: #e0e0e0;
+  color: var(--text-default);
 }
 
 .swagger-container .swagger-ui table thead tr td,
@@ -95,7 +102,7 @@ watch(() => props.specUrl, () => {
 .swagger-container .swagger-ui .parameter__name,
 .swagger-container .swagger-ui .parameter__type,
 .swagger-container .swagger-ui .response-col_status {
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 .swagger-container .swagger-ui .topbar {
@@ -103,10 +110,10 @@ watch(() => props.specUrl, () => {
 }
 
 .swagger-container .swagger-ui .info {
-  margin: 20px 0;
+  margin: var(--space-l) 0;
 }
 
 .swagger-container .swagger-ui .wrapper {
-  padding: 0 20px;
+  padding: 0 var(--space-l);
 }
 </style>

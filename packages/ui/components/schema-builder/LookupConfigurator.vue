@@ -76,22 +76,24 @@ watch(
 
 <template>
   <div class="sb-lookup">
-    <label class="sb-lookup__label">Koppeling-veld</label>
-    <FtpSelect
-      v-model="selectedRelation"
-      :options="relationOptions"
-    />
+    <FtpFormField label="Koppeling-veld">
+      <FtpSelect
+        v-model="selectedRelation"
+        :options="relationOptions"
+      />
+    </FtpFormField>
 
     <FtpMessage v-if="!relationFields.length" severity="info">
       Voeg eerst een koppeling-veld toe om data op te halen.
     </FtpMessage>
 
     <template v-if="selectedRelation && targetFields.length">
-      <label class="sb-lookup__label">Veld ophalen</label>
-      <FtpSelect
-        v-model="selectedField"
-        :options="targetFieldOptions"
-      />
+      <FtpFormField label="Veld ophalen">
+        <FtpSelect
+          v-model="selectedField"
+          :options="targetFieldOptions"
+        />
+      </FtpFormField>
     </template>
 
     <FtpMessage v-if="selectedRelation && selectedField" severity="info">
@@ -105,10 +107,5 @@ watch(
   display: flex;
   flex-direction: column;
   gap: var(--space-s, 10px);
-}
-
-.sb-lookup__label {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
 }
 </style>

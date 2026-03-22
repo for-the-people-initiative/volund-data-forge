@@ -145,6 +145,28 @@ export interface TransactionClient {
 
 export type PrimaryKeyStrategy = 'uuid' | 'auto-increment'
 
+// ─── Schema Metadata ─────────────────────────────────────────────────
+
+export interface SchemaMeta {
+  name: string
+  description?: string
+  icon?: string
+  createdAt?: string
+}
+
+// ─── Database Health ─────────────────────────────────────────────────
+
+export interface DatabaseHealth {
+  adapter: string
+  version: string
+  host: string
+  database: string
+  status: 'connected' | 'slow' | 'disconnected' | 'not_configured'
+  latencyMs: number
+  connectedSince?: string
+  error?: string
+}
+
 // ─── Database Adapter Interface ──────────────────────────────────────
 
 export interface DatabaseAdapter {
@@ -154,6 +176,7 @@ export interface DatabaseAdapter {
   connect(): Promise<void>
   disconnect(): Promise<void>
   isConnected(): boolean
+  health(): Promise<DatabaseHealth>
 
   // Schema operations (runtime DDL)
   createCollection(name: string, fields: FieldDefinition[]): Promise<void>
@@ -195,6 +218,12 @@ export interface DatabaseAdapter {
   dropSchema(name: string, cascade?: boolean): Promise<void>
   setSchema(name: string): void
   getSchema(): string
+
+  // Schema metadata
+  ensureSchemaMetaTable(): Promise<void>
+  getSchemaMetadata(name: string): Promise<SchemaMeta | null>
+  updateSchemaMetadata(name: string, meta: Partial<Omit<SchemaMeta, 'name'>>): Promise<void>
+  listSchemasWithMeta(): Promise<SchemaMeta[]>
 }
 
 // ─── Adapter Errors (re-exported from @data-engine/schema) ──────────

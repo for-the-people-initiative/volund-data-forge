@@ -25,7 +25,13 @@ interface RelationLine {
   onDelete?: string
 }
 
-const { data: schemas } = await useFetch<Schema[]>('/api/schema', { default: () => [] })
+const { activeSchema, schemaParams } = useDbSchema()
+
+const { data: schemas } = await useFetch<Schema[]>('/api/schema', {
+  default: () => [],
+  params: schemaParams(),
+  watch: [activeSchema],
+})
 
 const typeIcons: Record<string, string> = {
   string: '🔤',
@@ -292,7 +298,7 @@ function navigateToBuilder(name: string) {
   display: flex;
   align-items: center;
   gap: var(--space-2xs, 4px);
-  padding: 2px var(--space-s, 10px);
+  padding: var(--space-3xs) var(--space-s, 10px);
   font-size: 0.8rem;
   color: var(--text-default);
 }
@@ -326,7 +332,7 @@ function navigateToBuilder(name: string) {
   padding: var(--space-s, 10px);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-3xs);
   font-size: 0.8rem;
   color: var(--text-default);
   z-index: 100;

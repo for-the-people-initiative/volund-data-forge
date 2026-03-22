@@ -7,6 +7,13 @@ import type { RequestContext } from '@data-engine/api'
 import { isInternalCollection, validateCollectionName } from '@data-engine/schema'
 import { logActivity } from '../../utils/activity-log'
 
+/** Response body structure from ApiRouter */
+interface ApiResponseBody {
+  data?: { id?: number | string; [key: string]: unknown }
+  id?: number | string
+  [key: string]: unknown
+}
+
 export default defineEventHandler(async (event) => {
   await waitForEngine()
   const apiRouter = getApiRouter()
@@ -24,21 +31,18 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!collection) {
-    setResponseStatus(event, 400)
-    return { error: { code: 'MISSING_COLLECTION', message: 'Collection name required' } }
+    throw createError({ status: 400, message: 'Collection name required', data: { code: 'MISSING_COLLECTION' } })
   }
 
   // Block access to internal tables
   if (isInternalCollection(collection)) {
-    setResponseStatus(event, 404)
-    return { error: { code: 'NOT_FOUND', message: 'Collection not found' } }
+    throw createError({ status: 404, message: 'Collection not found', data: { code: 'NOT_FOUND' } })
   }
 
   // Validate collection name format
   const nameError = validateCollectionName(collection)
   if (nameError) {
-    setResponseStatus(event, 400)
-    return { error: { code: 'INVALID_COLLECTION_NAME', message: nameError } }
+    throw createError({ status: 400, message: nameError, data: { code: 'INVALID_COLLECTION_NAME' } })
   }
 
   // Schema endpoint: GET /api/collections/:collection/schema
@@ -46,8 +50,7 @@ export default defineEventHandler(async (event) => {
     const registry = getRegistry()
     const schema = registry.get(collection)
     if (!schema) {
-      setResponseStatus(event, 404)
-      return { error: { code: 'NOT_FOUND', message: `Collection '${collection}' not found` } }
+      throw createError({ status: 404, message: `Collection '${collection}' not found`, data: { code: 'NOT_FOUND' } })
     }
     return schema
   }
@@ -78,10 +81,11 @@ export default defineEventHandler(async (event) => {
   if (method === 'POST' || method === 'PUT') {
     const ct = getRequestHeader(event, 'content-type') ?? ''
     if (!ct.includes('application/json')) {
-      setResponseStatus(event, 415)
-      return {
-        error: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Content-Type must be application/json' },
-      }
+      throw createError({
+        status: 415,
+        message: 'Content-Type must be application/json',
+        data: { code: 'UNSUPPORTED_MEDIA_TYPE' },
+      })
     }
   }
 
@@ -105,8 +109,7 @@ export default defineEventHandler(async (event) => {
   const route = routes.find((r) => r.method === method && r.path === routePath)
 
   if (!route) {
-    setResponseStatus(event, 405)
-    return { error: { code: 'METHOD_NOT_ALLOWED', message: `${method} not supported` } }
+    throw createError({ status: 405, message: `${method} not supported`, data: { code: 'METHOD_NOT_ALLOWED' } })
   }
 
   // Execute and return
@@ -116,7 +119,7 @@ export default defineEventHandler(async (event) => {
   // Log activity for successful write operations
   if (response.status >= 200 && response.status < 300) {
     if (method === 'POST') {
-      const body = response.body as any
+      const body = response.body as ApiResponseBody | undefined
       const recordId = body?.data?.id ?? body?.id
       logActivity({
         collection,

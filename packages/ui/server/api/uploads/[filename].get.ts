@@ -21,20 +21,17 @@ function getMimeType(filename: string): string {
 export default defineEventHandler(async (event) => {
   const filename = getRouterParam(event, 'filename')
   if (!filename) {
-    setResponseStatus(event, 400)
-    return { error: { code: 'MISSING_FILENAME', message: 'Filename required' } }
+    throw createError({ status: 400, message: 'Filename required', data: { code: 'MISSING_FILENAME' } })
   }
 
   // Prevent directory traversal
   if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
-    setResponseStatus(event, 400)
-    return { error: { code: 'INVALID_FILENAME', message: 'Invalid filename' } }
+    throw createError({ status: 400, message: 'Invalid filename', data: { code: 'INVALID_FILENAME' } })
   }
 
   const filePath = join(process.cwd(), '.uploads', filename)
   if (!existsSync(filePath)) {
-    setResponseStatus(event, 404)
-    return { error: { code: 'NOT_FOUND', message: 'File not found' } }
+    throw createError({ status: 404, message: 'File not found', data: { code: 'NOT_FOUND' } })
   }
 
   const mimeType = getMimeType(filename)

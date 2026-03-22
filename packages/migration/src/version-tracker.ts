@@ -3,8 +3,6 @@
 import type { CollectionSchema, SchemaDiff } from '@data-engine/schema'
 import type { DatabaseAdapter } from '@data-engine/adapter'
 import type { SchemaVersion } from './types.js'
-import { randomUUID } from 'node:crypto'
-
 const VERSIONS_TABLE = '_schema_versions'
 
 export class VersionTracker {
@@ -35,7 +33,6 @@ export class VersionTracker {
     const now = new Date().toISOString()
 
     const record = await this.adapter.create(VERSIONS_TABLE, {
-      id: randomUUID(),
       collection_name: collection,
       version: nextVersion,
       schema_snapshot: JSON.stringify(schema),

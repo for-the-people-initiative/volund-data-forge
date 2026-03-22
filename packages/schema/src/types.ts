@@ -14,6 +14,8 @@ export interface FieldValidation {
 export interface FieldDefinition {
   name: string
   type: string
+  /** Human-readable description (used in API docs, SDK generation, UI tooltips) */
+  description?: string
   required?: boolean
   unique?: boolean
   default?: unknown
@@ -85,6 +87,9 @@ export interface ApiSurfaceConfig {
 /** Complete collection schema */
 export interface CollectionSchema {
   name: string
+  displayName?: string
+  /** Human-readable description (used in API docs, SDK generation, UI) */
+  description?: string
   schema?: string
   singularName: string
   fields: FieldDefinition[]

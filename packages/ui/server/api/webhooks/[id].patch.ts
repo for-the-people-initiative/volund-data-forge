@@ -1,25 +1,15 @@
 import { toggleWebhook } from '../../utils/webhooks'
 import { waitForEngine } from '../../utils/engine'
+import { IdParamSchema, WebhookToggleSchema } from '../../utils/schemas'
 
 export default defineEventHandler(async (event) => {
   await waitForEngine()
-  const id = getRouterParam(event, 'id')
-  const body = await readBody(event)
+  const { id } = await getValidatedRouterParams(event, IdParamSchema.parse)
+  const body = await readValidatedBody(event, WebhookToggleSchema.parse)
 
-  if (!id) {
-    setResponseStatus(event, 400)
-    return { error: 'ID is verplicht' }
-  }
-
-  if (body?.active === undefined) {
-    setResponseStatus(event, 400)
-    return { error: 'Veld active is verplicht' }
-  }
-
-  const updated = await toggleWebhook(id, !!body.active)
+  const updated = await toggleWebhook(String(id), body.active)
   if (!updated) {
-    setResponseStatus(event, 404)
-    return { error: 'Webhook niet gevonden' }
+    throw createError({ status: 404, message: 'Webhook niet gevonden', data: { code: 'NOT_FOUND' } })
   }
 
   return updated

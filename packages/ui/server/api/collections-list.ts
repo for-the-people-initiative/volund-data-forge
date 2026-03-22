@@ -3,12 +3,19 @@
  */
 import { getRegistry, getAdapter, waitForEngine } from '../utils/engine'
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   await waitForEngine()
   const registry = getRegistry()
   const adapter = getAdapter()
 
-  const allSchemas = registry.getAll()
+  const query = getQuery(event)
+  const schemaParam = typeof query.schema === 'string' ? query.schema : undefined
+
+  if (schemaParam) {
+    adapter.setSchema(schemaParam)
+  }
+
+  const allSchemas = registry.getAll(schemaParam)
   const result = []
 
   for (const schema of allSchemas) {

@@ -2,7 +2,7 @@
  * Activity log: tracks all CRUD operations on collections.
  * Table: _activity_log (internal, prefixed with _ so blocked from collections API)
  */
-import type { DatabaseAdapter, QueryAST } from '@data-engine/adapter'
+import type { DatabaseAdapter, QueryAST, TableSchema } from '@data-engine/adapter'
 import { getAdapter } from './engine'
 
 const TABLE = '_activity_log'
@@ -15,7 +15,7 @@ export async function ensureActivityLog(adapter: DatabaseAdapter): Promise<void>
   // Use introspect to check if table already exists
   try {
     const schema = await adapter.introspect()
-    if (schema.tables?.some((t: any) => t.name === TABLE)) {
+    if (schema.tables?.some((t: TableSchema) => t.name === TABLE)) {
       return
     }
   } catch {
@@ -30,9 +30,9 @@ export async function ensureActivityLog(adapter: DatabaseAdapter): Promise<void>
       { name: 'changes', type: 'text' },
       { name: 'timestamp', type: 'text', required: true },
     ])
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Table already exists — that's fine (race condition guard)
-    if (e?.message?.includes('already exists')) return
+    if (e instanceof Error && e.message?.includes('already exists')) return
     throw e
   }
 }
@@ -64,11 +64,21 @@ export async function logActivity(params: {
 /**
  * Query activity log entries.
  */
+/** Activity log entry */
+interface ActivityLogEntry {
+  id: number
+  collection: string
+  record_id: string
+  action: string
+  changes: string | null
+  timestamp: string
+}
+
 export async function queryActivity(opts?: {
   collection?: string
   limit?: number
   offset?: number
-}): Promise<{ data: any[]; total: number }> {
+}): Promise<{ data: ActivityLogEntry[]; total: number }> {
   const adapter = getAdapter()
   const limit = opts?.limit ?? 50
   const offset = opts?.offset ?? 0
@@ -86,10 +96,13 @@ export async function queryActivity(opts?: {
 
   const countQuery: QueryAST | undefined = filters ? { filters } : undefined
 
-  const [data, total] = await Promise.all([
+  const [rawData, total] = await Promise.all([
     adapter.findMany(TABLE, query),
     adapter.count(TABLE, countQuery),
   ])
+
+  // Cast raw data to typed entries (schema is controlled by this module)
+  const data = rawData as unknown as ActivityLogEntry[]
 
   return { data, total }
 }

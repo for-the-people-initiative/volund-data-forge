@@ -3,6 +3,8 @@
  * RecordPicker — modal search-and-select UI for relation fields.
  * Supports single (manyToOne) and multi (manyToMany) selection.
  */
+import type { CollectionRecord } from '../types/collection-record'
+import type { CollectionListResponse } from '../types/api-response'
 
 const props = defineProps<{
   collection: string
@@ -46,11 +48,12 @@ async function loadRecords() {
   loading.value = true
   try {
     const result = await listRecords(props.collection, { limit: 100 })
-    const records = (result as any)?.data ?? result ?? []
+    const response = result as CollectionListResponse | CollectionRecord[]
+    const records = Array.isArray(response) ? response : (response.data ?? [])
     allRecords.value = Array.isArray(records)
-      ? records.map((r: any) => ({
+      ? records.map((r: CollectionRecord) => ({
           id: String(r.id),
-          label: r.name ?? r.title ?? r.label ?? String(r.id),
+          label: String(r.name ?? r.title ?? r.label ?? r.id),
         }))
       : []
   } catch {
@@ -64,6 +67,11 @@ function openModal() {
   open.value = true
   search.value = ''
   loadRecords()
+  // Auto-focus search input when dialog opens
+  nextTick(() => {
+    const input = document.querySelector('.record-picker__search-wrap input') as HTMLInputElement
+    input?.focus()
+  })
 }
 
 function closeModal() {
@@ -289,7 +297,6 @@ function removeSelected(id: string) {
   outline-offset: 2px;
 }
 
-/* ─── Mobile < 768px ─── */
 @media (max-width: 767px) {
   .record-picker__list {
     max-height: none;

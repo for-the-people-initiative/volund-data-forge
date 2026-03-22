@@ -80,11 +80,12 @@ function emitRelation() {
 
 <template>
   <div class="sb-relation">
-    <label class="sb-relation__label">Doeltabel</label>
-    <FtpSelect
-      v-model="target"
-      :options="targetOptions"
-    />
+    <FtpFormField label="Doeltabel">
+      <FtpSelect
+        v-model="target"
+        :options="targetOptions"
+      />
+    </FtpFormField>
 
     <FtpMessage v-if="selfRefWarning" severity="warn">
       ⚠️ Je koppelt deze collectie aan zichzelf. Dit kan nuttig zijn (bijv. hiërarchie), maar
@@ -113,11 +114,12 @@ function emitRelation() {
       <div class="sb-relation__advanced">
         <FtpCheckbox v-model="maxOne" label="Maximaal één koppeling per record" />
 
-        <label class="sb-relation__label">Wat gebeurt er bij verwijderen?</label>
-        <FtpSelect
-          v-model="deletePolicy"
-          :options="deletePolicyOptions"
-        />
+        <FtpFormField label="Wat gebeurt er bij verwijderen?">
+          <FtpSelect
+            v-model="deletePolicy"
+            :options="deletePolicyOptions"
+          />
+        </FtpFormField>
       </div>
     </FtpPanel>
   </div>
@@ -128,11 +130,6 @@ function emitRelation() {
   display: flex;
   flex-direction: column;
   gap: var(--space-s, 10px);
-}
-
-.sb-relation__label {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
 }
 
 .sb-relation__advanced {

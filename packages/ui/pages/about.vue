@@ -72,7 +72,8 @@ const features = [
 ]
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
+@use "@for-the-people-initiative/design-system/scss/mixins/breakpoint" as *;
 .about {
   max-width: 720px;
   margin: 0 auto;
@@ -136,7 +137,7 @@ const features = [
 }
 
 /* ─── Mobile < 768px ─── */
-@media (max-width: 767px) {
+@include breakpoint-to(tablet) {
   .about {
     max-width: 100%;
   }

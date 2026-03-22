@@ -107,8 +107,9 @@ function onClose() {
         <p v-for="e in errors" :key="e" class="sb-drawer__error-line">⚠️ {{ e }}</p>
       </FtpMessage>
 
-      <label for="sb-field-name" class="sb-drawer__label">Veldnaam</label>
-      <FtpInputText id="sb-field-name" v-model="local.name" />
+      <FtpFormField label="Veldnaam" label-for="sb-field-name">
+        <FtpInputText id="sb-field-name" v-model="local.name" />
+      </FtpFormField>
 
       <div v-if="local.type !== 'lookup' && local.type !== 'computed'" class="sb-drawer__toggles">
         <FtpCheckbox v-model="local.required" label="Verplicht" />
@@ -116,18 +117,19 @@ function onClose() {
       </div>
 
       <template v-if="local.type !== 'relation' && local.type !== 'lookup' && local.type !== 'computed'">
-        <label for="sb-field-default" class="sb-drawer__label">Standaardwaarde</label>
-        <FtpInputText
-          v-if="local.type !== 'boolean'"
-          id="sb-field-default"
-          v-model="local.default"
-        />
-        <FtpSelect
-          v-else
-          id="sb-field-default"
-          v-model="local.default"
-          :options="booleanDefaultOptions"
-        />
+        <FtpFormField label="Standaardwaarde" label-for="sb-field-default">
+          <FtpInputText
+            v-if="local.type !== 'boolean'"
+            id="sb-field-default"
+            v-model="local.default"
+          />
+          <FtpSelect
+            v-else
+            id="sb-field-default"
+            v-model="local.default"
+            :options="booleanDefaultOptions"
+          />
+        </FtpFormField>
       </template>
 
       <template v-if="local.type === 'select'">
@@ -147,13 +149,14 @@ function onClose() {
       </template>
 
       <template v-if="local.type === 'computed'">
-        <label class="sb-drawer__label">Formule</label>
-        <FtpInputText
-          v-model="local.computed!.formula"
-          @focus="local.computed = local.computed ?? { formula: '', returnType: 'text' }"
-        />
+        <FtpFormField label="Formule">
+          <FtpInputText
+            v-model="local.computed!.formula"
+            @focus="local.computed = local.computed ?? { formula: '', returnType: 'text' }"
+          />
+        </FtpFormField>
         <div v-if="availableFieldNames.length" class="sb-drawer__field-chips">
-          <span class="sb-drawer__label">Beschikbare velden:</span>
+          <span class="sb-drawer__field-label">Beschikbare velden:</span>
           <div class="sb-drawer__chips">
             <FtpTag
               v-for="fn in availableFieldNames"
@@ -165,12 +168,13 @@ function onClose() {
             />
           </div>
         </div>
-        <label class="sb-drawer__label">Resultaattype</label>
-        <FtpSelect
-          v-model="local.computed!.returnType"
-          :options="computedReturnTypeOptions"
-          @focus="local.computed = local.computed ?? { formula: '', returnType: 'text' }"
-        />
+        <FtpFormField label="Resultaattype">
+          <FtpSelect
+            v-model="local.computed!.returnType"
+            :options="computedReturnTypeOptions"
+            @focus="local.computed = local.computed ?? { formula: '', returnType: 'text' }"
+          />
+        </FtpFormField>
       </template>
 
       <template v-if="local.type === 'relation'">
@@ -202,7 +206,7 @@ function onClose() {
   font-size: 0.8rem;
 }
 
-.sb-drawer__label {
+.sb-drawer__field-label {
   font-size: 0.8rem;
   color: var(--text-secondary);
   text-transform: capitalize;
@@ -216,13 +220,13 @@ function onClose() {
 .sb-drawer__field-chips {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
 }
 
 .sb-drawer__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2xs, 4px);
+  gap: var(--space-m, 16px);
 }
 
 .sb-drawer__chip {

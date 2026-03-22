@@ -3,7 +3,7 @@
  */
 import { getRegistry, waitForEngine } from '../../../utils/engine'
 
-export default defineEventHandler(async (event) => {
+export default defineCachedEventHandler(async (event) => {
   await waitForEngine()
   const params = getRouterParams(event)
   const schema = params.schema
@@ -19,4 +19,7 @@ export default defineEventHandler(async (event) => {
       api: c.api ?? {},
     })),
   }
+}, {
+  maxAge: 60,
+  swr: true,
 })

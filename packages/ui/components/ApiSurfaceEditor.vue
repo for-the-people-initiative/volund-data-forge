@@ -71,14 +71,16 @@ async function save() {
       body,
     })
 
-    if (res && (res as any).error) {
-      feedback.value = { type: 'error', message: (res as any).error.message }
+    const resObj = res as Record<string, unknown> | null
+    const resError = resObj?.error as { message: string } | undefined
+    if (resError) {
+      feedback.value = { type: 'error', message: resError.message }
     } else {
       feedback.value = { type: 'success', message: 'API configuratie opgeslagen!' }
       emit('saved')
     }
-  } catch (err: any) {
-    feedback.value = { type: 'error', message: err?.data?.error?.message || err.message || 'Opslaan mislukt' }
+  } catch (err: unknown) {
+    feedback.value = { type: 'error', message: err instanceof Error ? ((err as Error & { data?: { error?: { message: string } } }).data?.error?.message || err.message) : 'Opslaan mislukt' }
   } finally {
     saving.value = false
   }

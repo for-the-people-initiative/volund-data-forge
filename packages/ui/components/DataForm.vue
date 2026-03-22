@@ -4,6 +4,11 @@
  * Renders form fields based on the collection schema.
  * Supports create mode (empty) and edit mode (pre-filled by recordId).
  */
+import type { CollectionRecord } from '../types/collection-record'
+import type { CollectionListResponse, CollectionRecordResponse } from '../types/api-response'
+import type { SchemaField } from '../types/schema-field'
+import { getErrorMessage } from '../types/api-response'
+import { $fetch as fetch } from 'ofetch'
 
 const props = defineProps<{
   collection: string
@@ -49,10 +54,11 @@ watch(
     loading.value = true
     try {
       const raw = await getRecord(props.collection, id)
-      const record = ((raw as any)?.data ?? raw) as Record<string, unknown>
+      const response = raw as CollectionRecordResponse | CollectionRecord
+      const record = ('data' in response && response.data ? response.data : response) as Record<string, unknown>
       formData.value = { ...record }
-    } catch (err: any) {
-      serverError.value = err?.data?.error?.message ?? err?.message ?? 'Record laden mislukt'
+    } catch (err: unknown) {
+      serverError.value = getErrorMessage(err, 'Record laden mislukt')
     } finally {
       loading.value = false
     }
@@ -68,11 +74,12 @@ watch(
       if (field.type === 'relation' && field.relation?.target) {
         try {
           const result = await listRecords(field.relation.target, { limit: 100 })
-          const records = (result as any)?.data ?? result ?? []
+          const response = result as CollectionListResponse | CollectionRecord[]
+          const records = Array.isArray(response) ? response : (response.data ?? [])
           relationOptions.value[field.name] = Array.isArray(records)
-            ? records.map((r: any) => ({
+            ? records.map((r) => ({
                 id: String(r.id),
-                label: r.name ?? r.title ?? r.label ?? String(r.id),
+                label: String(r.name ?? r.title ?? r.label ?? r.id),
               }))
             : []
         } catch {
@@ -97,14 +104,14 @@ async function handleFileUpload(fieldName: string, event: Event) {
   try {
     const fd = new FormData()
     fd.append('file', file)
-    const result = await $fetch<{ path: string; filename: string; mimetype: string; size: number }>('/api/uploads', {
+    const result = await fetch<{ path: string; filename: string; mimetype: string; size: number }>('/api/uploads', {
       method: 'POST',
       body: fd,
     })
     formData.value[fieldName] = result.path
     fileMeta.value[fieldName] = { filename: result.filename, mimetype: result.mimetype }
-  } catch (err: any) {
-    errors.value[fieldName] = err?.data?.error?.message ?? 'Upload mislukt'
+  } catch (err: unknown) {
+    errors.value[fieldName] = getErrorMessage(err, 'Upload mislukt')
   } finally {
     fileUploading.value[fieldName] = false
   }
@@ -175,20 +182,21 @@ async function handleSubmit() {
   try {
     if (isEditMode.value && props.recordId) {
       const result = await updateRecord(props.collection, props.recordId, payload)
-      const record = ((result as any)?.data ?? result) as Record<string, unknown>
+      const response = result as CollectionRecordResponse | CollectionRecord
+      const record = ('data' in response && response.data ? response.data : response) as Record<string, unknown>
       emit('success', record ?? payload)
     } else {
       const result = await createRecord(props.collection, payload)
-      const record = ((result as any)?.data ?? result) as Record<string, unknown>
+      const response = result as CollectionRecordResponse | CollectionRecord
+      const record = ('data' in response && response.data ? response.data : response) as Record<string, unknown>
       emit('success', record ?? payload)
-      // Only navigate when not in modal context
-      const newId = record?.id
+      const newId = (record as CollectionRecord)?.id
       if (newId && router.currentRoute.value.path.includes('/new')) {
         router.push(`/collections/${props.collection}/${newId}`)
       }
     }
-  } catch (err: any) {
-    serverError.value = err?.data?.error?.message ?? err?.message ?? 'Opslaan mislukt'
+  } catch (err: unknown) {
+    serverError.value = getErrorMessage(err, 'Opslaan mislukt')
   } finally {
     submitting.value = false
   }
@@ -196,7 +204,6 @@ async function handleSubmit() {
 
 function handleCancel() {
   emit('cancel')
-  // Only navigate back if not in modal context
   if (!props.recordId || router.currentRoute.value.path.includes('/new')) {
     router.back()
   }
@@ -206,7 +213,7 @@ function fieldId(name: string) {
   return `df-${props.collection}-${name}`
 }
 
-function getSelectOptions(field: any) {
+function getSelectOptions(field: SchemaField) {
   return (field.options ?? []).map((opt: string) => ({ label: opt, value: opt }))
 }
 </script>
@@ -261,7 +268,7 @@ function getSelectOptions(field: any) {
           v-else-if="field.type === 'select' && field.options?.length"
           :id="fieldId(field.name)"
           :model-value="(formData[field.name] as string) ?? ''"
-          :options="getSelectOptions(field)"
+          :options="getSelectOptions(field as SchemaField)"
           option-label="label"
           option-value="value"
           :is-invalid="!!errors[field.name]"
@@ -279,7 +286,6 @@ function getSelectOptions(field: any) {
         />
 
         <!-- Datetime -->
-        <!-- Note: kept as native input type="datetime-local" — no FTP DateTimePicker with time support -->
         <input
           v-else-if="field.type === 'datetime'"
           :id="fieldId(field.name)"
@@ -331,7 +337,6 @@ function getSelectOptions(field: any) {
         />
 
         <!-- File upload -->
-        <!-- Note: kept as native input type="file" — no FTP FileUpload equivalent -->
         <div v-else-if="field.type === 'file'" class="data-form__file-wrap">
           <input
             :id="fieldId(field.name)"
@@ -441,7 +446,6 @@ function getSelectOptions(field: any) {
   width: 100%;
 }
 
-/* Native inputs for datetime-local and file (no FTP equivalent) */
 .data-form__native-input {
   width: 100%;
   padding: var(--space-xs) var(--space-s);
